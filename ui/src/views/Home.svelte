@@ -5,6 +5,7 @@
   import { router } from '../lib/router.svelte';
   import ProfileSummary from '../components/ProfileSummary.svelte';
   import StatePill from '../components/StatePill.svelte';
+  import CyberHud from '../components/CyberHud.svelte';
   import type { JavaCheck, ServerStatus } from '../lib/types';
 
   const p = $derived(app.active);
@@ -32,6 +33,8 @@
 <div class="row between">
   <h1>Inicio</h1>
 </div>
+
+<CyberHud />
 
 {#if !p}
   <div class="card stack">
