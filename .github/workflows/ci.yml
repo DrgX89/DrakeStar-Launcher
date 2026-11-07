@@ -6,7 +6,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo test --workspace
+      # Logica sin Tauri: no necesita librerias graficas
+      - run: cargo test -p drakestar-core -p drakestar-net -p drakestar-app -p drakestar-cli
       - name: Validar ejemplos
         run: |
           for f in examples/profile-*.json; do cargo run -q -p drakestar-cli -- profile-check "$f"; done
@@ -15,3 +16,32 @@ jobs:
         run: python3 -c "import glob,xml.dom.minidom as m;[m.parse(f) for f in glob.glob('assets/**/*.svg',recursive=True)]"
       - name: Marca regenerable sin diferencias
         run: python3 tools/gen_brand.py && git diff --exit-code assets
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: ui/package-lock.json }
+      - run: npm ci
+        working-directory: ui
+      - name: svelte-check + vite build
+        run: npm run build
+        working-directory: ui
+      - uses: actions/upload-artifact@v4
+        with: { name: ui-dist, path: ui/dist }
+
+  tauri:
+    runs-on: ubuntu-latest
+    needs: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Dependencias de Tauri 2 (Linux)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev pkg-config
+      - uses: actions/download-artifact@v4
+        with: { name: ui-dist, path: ui/dist }
+      - name: Workspace completo (incluye el glue de Tauri)
+        run: cargo test --workspace

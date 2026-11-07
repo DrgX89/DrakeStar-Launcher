@@ -15,3 +15,5 @@ Tipografía: Orbitron/Rajdhani con *fallback* a sans del sistema. Los textos de 
 **Assets** (`assets/brand/`, generados por `tools/gen_brand.py`; sin rasters ni recursos externos): `logo`, `logo-mono`, `isotype`, `banner`, `splash` (con animación SMIL de carga), 14 iconos (`icons/`), pastillas de estado y canal, 3 botones, 8 tabs (`ui/`), `mockups/main-window.svg` (mockup, no captura).
 
 Usos: no deformar el isotipo; mínimo 24 px; sobre fondo claro usar `logo-mono.svg`. Horizon aporta inspiración técnica, **no** su marca.
+
+**En la UI** (`ui/src/app.css`): los tokens son variables CSS `--void`, `--void-2`, `--purple`, `--purple-2`, `--gold`, `--gold-2`, `--red`, `--text`, `--muted` con los mismos hex de la tabla. Los SVG de `assets/brand` no se redibujan: `npm run sync-brand` (se ejecuta antes de `dev`/`build`) los copia a `ui/public/brand` (ignorado por git) y la UI los usa como `<img>` (logo, iconos de modo, pastillas de canal y de estado, tabs de modo). Los textos de esos SVG van dentro de la imagen, por lo que se usan con `alt` descriptivo.

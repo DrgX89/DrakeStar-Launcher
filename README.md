@@ -10,16 +10,32 @@
 
 **DrakeStar** (Drakes + JackStar) es el launcher hermano de [DrakesPurpur Hybrid Engine](https://github.com/SlimefunNewHorizons/DrakesPurpur): un solo producto para **jugar, probar y administrar** todo el ecosistema Drakes/Slimefun — cliente Rust, cliente Java, servidor local y servidor online — con identidad visual propia.
 
-> **Estado: v0.1 — esqueleto.** Existe el núcleo (perfiles, canales, manifiesto de releases, planificación de lanzamiento, matriz de compatibilidad) con tests, el CLI de validación, los esquemas y la marca vectorial. **Aún no existe** el shell gráfico, el descargador, el gestor de procesos ni el cliente Rust. Ver [ROADMAP](docs/ROADMAP.md). Las capturas de este README son **mockups**, no software en ejecución.
+> **Estado: v0.2-alpha — hay aplicación gráfica real, con alcance limitado.** Funciona de verdad (verificado, ver abajo): perfiles con persistencia en disco, validación con `drakestar-core`, import/export, selector de modo respetando la matriz de compatibilidad, administración de instancias, **arranque/parada del JAR de un servidor local con consola en vivo, stdin y logs en disco**, gestión de la carpeta del servidor (EULA, `server.properties`, plugins, mundos), resolución de releases por canal y descarga con verificación SHA-256. **No existe**: lanzar clientes DrakesJava/DrakesRust, loaders/modpacks, JRE gestionado, cliente Rust, manifiesto oficial de releases, instaladores. Ver [ROADMAP](docs/ROADMAP.md).
+
+## Capturas
+
+Capturas de la **app Tauri real** (backend Rust, proceso Java real; el «servidor» es un JAR de juguete que hace eco, **no es DrakesPurpur**), tomadas en Linux con Xvfb:
+
+| Local Forge | Consola en vivo | Tras `stop` |
+|---|---|---|
+| <img src="docs/screenshots/real-01-local-forge.png" width="300"> | <img src="docs/screenshots/real-02-consola-en-vivo.png" width="300"> | <img src="docs/screenshots/real-03-consola-detenido.png" width="300"> |
+
+Capturas de la misma UI en **modo navegador con backend simulado (MOCK)** — la barra amarilla lo indica; no hay disco ni procesos reales (script: [`tools/screenshots.cjs`](tools/screenshots.cjs)):
+
+| Inicio | Perfiles | Editor (DrakesRust: loaders bloqueados, «sin verificar») |
+|---|---|---|
+| <img src="docs/screenshots/01-inicio.png" width="300"> | <img src="docs/screenshots/02-perfiles.png" width="300"> | <img src="docs/screenshots/03-editor-perfil-rust.png" width="300"> |
+
+Más en [`docs/screenshots/`](docs/screenshots/) (DrakesRust, actualizaciones, instancias, móvil). `assets/brand/mockups/main-window.svg` sigue siendo un mockup de diseño.
 
 ## Modos
 
 | Modo | Icono | Qué hace | Estado |
 |---|---|---|---|
-| **DrakesRust** | <img src="assets/brand/icons/mode-drakesrust.svg" width="28"> | Lanza un cliente Rust (Horizon-like). Perfiles propios, LOD/alto rendimiento. **No carga mods Java.** | diseño (cliente por definir) |
-| **DrakesJava** | <img src="assets/brand/icons/mode-drakesjava.svg" width="28"> | Perfiles Java vanilla/Fabric/Forge/NeoForge, modpacks, JVM y memoria, import/export. | diseño + modelo de datos |
-| **Local Forge** | <img src="assets/brand/icons/mode-localserver.svg" width="28"> | Levanta un DrakesPurpur local con preset Slimefun; logs, consola, plugins, mundos. | plan de lanzamiento implementado y probado; ejecución pendiente |
-| **Online** | <img src="assets/brand/icons/mode-online.svg" width="28"> | Perfiles de conexión a DrakesCraft y accesos rápidos, estado del servidor. | modelo de datos |
+| **DrakesRust** | <img src="assets/brand/icons/mode-drakesrust.svg" width="28"> | Lanza un cliente Rust (Horizon-like). Perfiles propios, LOD/alto rendimiento. **No carga mods Java.** | solo perfiles/canal/resolución; **sin cliente, no se puede lanzar** |
+| **DrakesJava** | <img src="assets/brand/icons/mode-drakesjava.svg" width="28"> | Perfiles Java vanilla/Fabric/Forge/NeoForge, modpacks, JVM y memoria, import/export. | perfiles y validación; **lanzamiento pendiente** |
+| **Local Forge** | <img src="assets/brand/icons/mode-localserver.svg" width="28"> | Levanta un DrakesPurpur local con preset Slimefun; logs, consola, plugins, mundos. | **implementado**: arrancar/parar, consola, logs, EULA, properties, plugins, mundos (probado con un JAR de juguete; sin probar contra un DrakesPurpur real) |
+| **Online** | <img src="assets/brand/icons/mode-online.svg" width="28"> | Perfiles de conexión a DrakesCraft y accesos rápidos, estado del servidor. | perfiles + ping TCP; conectar requiere un cliente (pendiente) |
 
 <p align="center"><img src="assets/brand/mockups/main-window.svg" alt="Mockup de la ventana principal (no es una captura real)" width="80%"></p>
 
@@ -50,14 +66,35 @@ Cada **perfil declara un canal**; un perfil `stable` jamás resuelve una release
 
 Local Forge ejecuta el JAR de DrakesPurpur (Java 25; el motor híbrido extrae su biblioteca nativa Rust del propio JAR). El launcher no duplica lógica del motor: lo descarga por canal (SHA-256), lo configura con un preset y lo supervisa. Los resultados medidos del motor están en el repo de DrakesPurpur, no aquí.
 
-## Uso del núcleo (hoy)
+## Ejecutar
+
+Requisitos: Rust estable, Node 22+, y en Linux las dependencias de Tauri 2 (`sudo apt-get install libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev pkg-config`). Java 25 para arrancar un servidor DrakesPurpur 26.x.
 
 ```bash
-cargo test --workspace
+# App de escritorio (dev): arranca Vite y la ventana Tauri
+(cd ui && npm install) && ui/node_modules/.bin/tauri dev   # desde la raiz del repo
+
+# Solo la UI en el navegador, con backend MOCK (marcado en pantalla)
+cd ui && npm install && npm run dev            # http://localhost:5173
+
+# Verificación
+cd ui && npm run build                          # svelte-check (TypeScript) + vite build
+cargo test --workspace                          # 12 core + net + app (+ glue Tauri compila)
 cargo run -p drakestar-cli -- profile-check examples/profile-local-dev.json
-cargo run -p drakestar-cli -- plan examples/profile-local-dev.json   # muestra el comando, no lo ejecuta
 cargo run -p drakestar-cli -- compat
 ```
+
+Datos de la app: `<app data dir>/profiles/<id>/{profile.json,server/,instance/,logs/}`, `settings.json`, `manifest.json`, `exports/`. Se puede forzar otro directorio con `DRAKESTAR_DATA_DIR`. No hay instaladores/bundles todavía (`bundle.active=false`).
+
+## Estructura
+
+| Crate / carpeta | Rol | Tests |
+|---|---|---|
+| `crates/drakestar-core` | modelo, canales, manifiesto, plan, **compat** (fuente de verdad) | 13 |
+| `crates/drakestar-net` | descarga https + SHA-256 en streaming, `.part` → rename solo si coincide | 6 |
+| `crates/drakestar-app` | almacén de perfiles, gestor de procesos, servidor local, instancias, releases, ping, Java. **Sin dependencia de Tauri** | 30 |
+| `src-tauri` | glue Tauri 2: comandos IPC + eventos `proc-event` | compila (`cargo check`) |
+| `ui/` | Svelte 5 + TypeScript + Vite; SVG de `assets/brand` copiados por `npm run sync-brand` | `svelte-check` |
 
 ## Marca
 
@@ -65,7 +102,7 @@ Cyberpunk dorado · morado · rojo. Todo vectorial y regenerable (`python3 tools
 
 ## Documentación
 
-[ARQUITECTURA](docs/ARCHITECTURE.md) · [PERFILES](docs/PROFILES.md) · [RELEASES](docs/RELEASES.md) · [BRANDING](docs/BRANDING.md) · [ROADMAP](docs/ROADMAP.md) · rutas de UI: [`ui/routes.json`](ui/routes.json)
+[ARQUITECTURA](docs/ARCHITECTURE.md) · [PERFILES](docs/PROFILES.md) · [RELEASES](docs/RELEASES.md) · [BRANDING](docs/BRANDING.md) · [ROADMAP](docs/ROADMAP.md) · rutas de UI (las usa el router): [`ui/routes.json`](ui/routes.json)
 
 ## Créditos y licencia
 
