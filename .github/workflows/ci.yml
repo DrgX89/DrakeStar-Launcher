@@ -1,0 +1,17 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --workspace
+      - name: Validar ejemplos
+        run: |
+          for f in examples/profile-*.json; do cargo run -q -p drakestar-cli -- profile-check "$f"; done
+          cargo run -q -p drakestar-cli -- manifest-check examples/manifest.example.json
+      - name: SVG bien formados
+        run: python3 -c "import glob,xml.dom.minidom as m;[m.parse(f) for f in glob.glob('assets/**/*.svg',recursive=True)]"
+      - name: Marca regenerable sin diferencias
+        run: python3 tools/gen_brand.py && git diff --exit-code assets

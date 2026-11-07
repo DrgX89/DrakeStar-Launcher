@@ -1,0 +1,90 @@
+//! Planificacion de lanzamiento: convierte un perfil en una linea de comandos,
+//! sin ejecutarla (la ejecucion vive en el gestor de procesos del shell).
+
+use crate::profile::{Mode, Profile};
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LaunchPlan {
+    pub program: String,
+    pub args: Vec<String>,
+    pub cwd: String,
+}
+
+/// Major de Java exigido por una version de Minecraft. Los snapshots/versiones
+/// "26.x" requieren Java 25 (el servidor DrakesPurpur 26.2 usa Java 25).
+pub fn required_java(minecraft: &str) -> u32 {
+    let major: u32 = minecraft
+        .split('.')
+        .next()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
+    if major >= 26 {
+        25
+    } else {
+        21
+    }
+}
+
+/// Plan del servidor local DrakesPurpur. El JAR lo aporta el gestor de releases.
+pub fn local_server_plan(
+    p: &Profile,
+    java_bin: &str,
+    server_jar: &str,
+    root: &str,
+) -> Option<LaunchPlan> {
+    if p.mode != Mode::LocalServer {
+        return None;
+    }
+    let mut args = vec![
+        format!("-Xms{}M", p.java.min_mem_mb),
+        format!("-Xmx{}M", p.java.max_mem_mb),
+    ];
+    args.extend(p.java.extra_jvm_args.iter().cloned());
+    // Biblioteca nativa del motor hibrido: se extrae sola del JAR (DrakesPurpur Hybrid),
+    // aqui solo habilitamos el acceso nativo que exige Java 25 para FFM.
+    args.push("--enable-native-access=ALL-UNNAMED".into());
+    args.extend(["-jar".into(), server_jar.into(), "--nogui".into()]);
+    Some(LaunchPlan {
+        program: java_bin.into(),
+        args,
+        cwd: format!("{root}/profiles/{}/server", p.id),
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{channel::Channel, profile::*};
+
+    #[test]
+    fn java_major_for_26x() {
+        assert_eq!(required_java("26.2"), 25);
+        assert_eq!(required_java("1.21.4"), 21);
+    }
+
+    #[test]
+    fn local_server_plan_only_for_local_server() {
+        let mut p = Profile {
+            schema: 1,
+            id: "dev".into(),
+            name: "Dev".into(),
+            mode: Mode::LocalServer,
+            channel: Channel::Unstable,
+            minecraft: "26.2".into(),
+            loader: Loader::Vanilla,
+            java: JavaSettings::default(),
+            server: None,
+            preset: Some("slimefun".into()),
+            modpack: None,
+            notes: String::new(),
+        };
+        let plan = local_server_plan(&p, "java", "drakespurpur.jar", "/d").unwrap();
+        assert!(plan.args.contains(&"-Xmx4096M".to_string()));
+        assert!(plan
+            .args
+            .contains(&"--enable-native-access=ALL-UNNAMED".to_string()));
+        assert_eq!(plan.cwd, "/d/profiles/dev/server");
+        p.mode = Mode::Online;
+        assert!(local_server_plan(&p, "java", "x", "/d").is_none());
+    }
+}

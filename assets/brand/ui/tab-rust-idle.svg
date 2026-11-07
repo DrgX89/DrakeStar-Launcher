@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="44" viewBox="0 0 160 44" role="img" aria-label="tab DRAKESRUST"><title>tab DRAKESRUST</title><defs>
+<linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFE08A"/><stop offset=".45" stop-color="#F5B942"/><stop offset="1" stop-color="#FF2E4D"/></linearGradient>
+<linearGradient id="p" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#B77CFF"/><stop offset="1" stop-color="#8B3DFF"/></linearGradient>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#160A26"/><stop offset="1" stop-color="#0B0612"/></linearGradient>
+<filter id="glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs><path d="M0,43 L160,43" stroke="#8B3DFF" stroke-width="3"/><text x="80.0" y="28" text-anchor="middle" font-family="'Orbitron','Rajdhani','Segoe UI',Verdana,sans-serif" font-size="14" font-weight="700" letter-spacing="3" fill="#9A8AB8">DRAKESRUST</text></svg>

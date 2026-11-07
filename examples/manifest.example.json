@@ -1,0 +1,4 @@
+{ "schema": 1, "releases": [
+  { "version": "0.1.0", "channel": "stable", "minecraft": ["26.2"], "notes": "ejemplo (no es una release real)",
+    "artifacts": [ { "component": "drakespurpur", "platform": "any", "url": "https://example.invalid/drakespurpur-0.1.0.jar", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "size": 0 } ] }
+] }

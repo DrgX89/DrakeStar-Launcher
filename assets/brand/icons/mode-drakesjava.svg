@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="mode-drakesjava"><title>mode-drakesjava</title><defs>
+<linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFE08A"/><stop offset=".45" stop-color="#F5B942"/><stop offset="1" stop-color="#FF2E4D"/></linearGradient>
+<linearGradient id="p" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#B77CFF"/><stop offset="1" stop-color="#8B3DFF"/></linearGradient>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#160A26"/><stop offset="1" stop-color="#0B0612"/></linearGradient>
+<filter id="glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs><g fill="none" stroke="#B77CFF" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M24 14c0 8 8 8 8 16s-8 8-8 8"/><path d="M34 18c0 6 6 6 6 12s-6 6-6 6"/><path d="M14 46h32c0 6-6 10-16 10s-16-4-16-10Z"/><path d="M46 44c6 0 6-8 0-8"/></g></svg>
