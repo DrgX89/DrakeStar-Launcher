@@ -6,7 +6,12 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+zip = "2"
+libloading = "0.8"
 drakestar-core = { path = "../drakestar-core" }
 drakestar-net = { path = "../drakestar-net" }
 serde.workspace = true
 serde_json.workspace = true
+
+[dev-dependencies]
+drakestar-rust-client = { path = "../drakestar-rust-client" }

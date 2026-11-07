@@ -4,14 +4,19 @@
 //! El crate `src-tauri` solo expone estas funciones como comandos IPC.
 
 pub mod compat_report;
+pub mod engine;
 pub mod error;
+pub mod fabric;
 pub mod instances;
 pub mod java;
 pub mod layout;
 pub mod modsync;
+pub mod mods;
+pub mod native;
 pub mod ping;
 pub mod process;
 pub mod release;
+pub mod rustclient;
 pub mod server;
 pub mod service;
 pub mod settings;

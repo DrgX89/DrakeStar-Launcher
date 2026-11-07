@@ -2,15 +2,16 @@
 //! Es lo que llaman los comandos Tauri (y los tests de integracion).
 
 use crate::{
-    instances,
+    fabric, instances,
     process::{EventSink, ProcessManager, ProcStatus},
     release,
+    rustclient,
     server::ServerDir,
     settings::Settings,
     store::ProfileStore,
     AppError, AppResult, Layout,
 };
-use drakestar_core::{launch, Mode, Profile};
+use drakestar_core::{launch, profile::Loader, Mode, Profile};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -19,12 +20,19 @@ pub struct Service {
     pub layout: Layout,
     pub store: ProfileStore,
     pub procs: ProcessManager,
+    /// mods nativos cargados (viven mientras viva el servicio).
+    pub native: std::sync::Arc<crate::native::NativeRegistry>,
 }
 
 impl Service {
     pub fn new(layout: Layout, sink: Arc<dyn EventSink>) -> Self {
         let _ = std::fs::create_dir_all(layout.profiles_dir());
-        Self { store: ProfileStore::new(layout.clone()), procs: ProcessManager::new(sink), layout }
+        Self {
+            store: ProfileStore::new(layout.clone()),
+            procs: ProcessManager::new(sink),
+            native: std::sync::Arc::new(crate::native::NativeRegistry::new()),
+            layout,
+        }
     }
 
     pub fn settings(&self) -> Settings {
@@ -97,6 +105,170 @@ impl Service {
         sd.ensure()?;
         release::install_server_jar(&self.layout, &p, release::load_manifest(&self.layout).as_ref())
     }
+
+    // ---------- cliente Rust gestionado (DrakesRust) ----------
+
+    pub fn rust_client_status(&self, id: &str) -> AppResult<rustclient::RustClientStatus> {
+        let p = self.store.get(id)?;
+        if p.mode != Mode::DrakesRust {
+            return Err(AppError::Invalid(format!("'{id}' no es un perfil drakes-rust")));
+        }
+        Ok(rustclient::status(&self.layout, &p))
+    }
+
+    /// Descarga el binario del cliente (red y disco: la capa Tauri lo envuelve en
+    /// `spawn_blocking`).
+    pub fn rust_client_install(&self, id: &str) -> AppResult<rustclient::RustClientStatus> {
+        let p = self.store.get(id)?;
+        if p.mode != Mode::DrakesRust {
+            return Err(AppError::Invalid(format!("'{id}' no es un perfil drakes-rust")));
+        }
+        if self.procs.is_active(id) {
+            return Err(AppError::Busy(format!("'{id}' esta en ejecucion: detenlo antes de reinstalar")));
+        }
+        rustclient::install(&self.layout, &p, release::load_manifest(&self.layout).as_ref())
+    }
+
+    /// Plan del cliente Rust (sin ejecutar), para mostrarlo en la UI.
+    pub fn rust_client_plan(&self, id: &str) -> AppResult<launch::LaunchPlan> {
+        let p = self.store.get(id)?;
+        if p.mode != Mode::DrakesRust {
+            return Err(AppError::Invalid(format!("'{id}' no es un perfil drakes-rust")));
+        }
+        launch::rust_client_plan(
+            &p,
+            &rustclient::bin_path(&self.layout, id).to_string_lossy(),
+            &self.layout.root().to_string_lossy(),
+            &fabric::username(&self.settings(), &p),
+        )
+        .ok_or_else(|| AppError::Invalid("un perfil drakes-rust necesita 'server' (host o host:puerto)".into()))
+    }
+
+    /// Arranca el cliente Rust del perfil (misma consola y logs que el resto).
+    pub fn rust_client_start(&self, id: &str) -> AppResult<ProcStatus> {
+        let p = self.store.get(id)?;
+        if p.mode != Mode::DrakesRust {
+            return Err(AppError::Invalid(format!("'{id}' no es un perfil drakes-rust")));
+        }
+        let st = rustclient::status(&self.layout, &p);
+        if !st.ready {
+            return Err(AppError::NotFound(format!("el cliente Rust no esta listo ({})", st.reason.unwrap_or_default())));
+        }
+        instances::ensure_dirs(&self.layout, &p)?;
+        let plan = self.rust_client_plan(id)?;
+        self.procs.start(id, &plan, &self.layout.logs_dir(id))
+    }
+
+    /// Para el cliente: el binario entiende `stop`/`quit` por stdin.
+    pub fn rust_client_stop(&self, id: &str) -> AppResult<()> {
+        let p = self.store.get(id)?;
+        if p.mode != Mode::DrakesRust {
+            return Err(AppError::Invalid(format!("'{id}' no es un perfil drakes-rust")));
+        }
+        self.procs.stop(id, Some("stop"), Duration::from_secs(30))
+    }
+
+    /// Manda una linea al stdin del cliente (p. ej. `quit` para salir).
+    pub fn rust_client_command(&self, id: &str, line: &str) -> AppResult<()> {
+        let p = self.store.get(id)?;
+        if p.mode != Mode::DrakesRust {
+            return Err(AppError::Invalid(format!("'{id}' no es un perfil drakes-rust")));
+        }
+        self.procs.send_line(id, line.trim())
+    }
+
+    // ---------- cliente Java gestionado (Fabric) ----------
+
+    pub fn client_status(&self, id: &str) -> AppResult<fabric::ClientStatus> {
+        let p = self.store.get(id)?;
+        Ok(fabric::status(&self.layout, &p))
+    }
+
+    /// Descarga/verifica el cliente (red y disco: la capa Tauri lo envuelve en
+    /// `spawn_blocking`).
+    pub fn client_install(&self, id: &str) -> AppResult<fabric::ClientStatus> {
+        let p = self.store.get(id)?;
+        if self.procs.is_active(id) {
+            return Err(AppError::Busy(format!("'{id}' esta en ejecucion: detenlo antes de reinstalar")));
+        }
+        fabric::install(&self.layout, &p)
+    }
+
+    /// Carga los mods nativos del reporte (los de runtime Rust). El ABI se
+    /// verifica antes de llamar nada; los que no cargan quedan explicados.
+    pub fn native_load(&self, id: &str) -> AppResult<Vec<String>> {
+        let p = self.store.get(id)?;
+        let report = crate::mods::load(&self.layout, &p, drakestar_core::mods::Environment::Client)?;
+        let instance = fabric::instance_dir(&self.layout, &p.id);
+        let mods_dir = instance.join("mods");
+        let dest = instance.join("natives-mods");
+        let found = crate::mods::discover(&mods_dir)?.0;
+        let mut cargados = vec![];
+        for (mid, runtime, _abi) in &report.abi {
+            if runtime != "Rust nativo" {
+                continue;
+            }
+            let Some(m) = found.iter().find(|m| &m.id == mid) else { continue };
+            let loaded = crate::native::load_from_jar(&m.path, mid, &dest)?;
+            self.native.insert(loaded);
+            cargados.push(mid.clone());
+        }
+        Ok(cargados)
+    }
+
+    /// Corre el cargador: descubre, verifica (SHA-256), valida con el
+    /// intermediario y resuelve; lo que no carga queda deshabilitado. Devuelve
+    /// el informe para la UI.
+    pub fn mods_decide(&self, id: &str) -> AppResult<crate::mods::LoadReport> {
+        let p = self.store.get(id)?;
+        let instance = fabric::instance_dir(&self.layout, &p.id);
+        let mods_dir = instance.join("mods");
+        let (found, skipped) = crate::mods::discover(&mods_dir)?;
+        let report = crate::mods::load(&self.layout, &p, drakestar_core::mods::Environment::Client)?;
+        crate::mods::apply_decisions(&mods_dir, &found, &report)?;
+        Ok(crate::mods::LoadReport { skipped, ..report })
+    }
+
+    /// Plan del cliente (sin ejecutar), para mostrarlo en la UI.
+    pub fn client_plan(&self, id: &str) -> AppResult<String> {
+        let p = self.store.get(id)?;
+        let plan = fabric::plan(&self.layout, &p, &self.settings().java_bin(), &fabric::username(&self.settings(), &p))?;
+        Ok(format!("{} {}\n(cwd: {})", plan.program, plan.args.join(" "), plan.cwd))
+    }
+
+    /// Arranca el cliente Java del perfil (misma consola y logs que el servidor).
+    pub fn client_start(&self, id: &str) -> AppResult<ProcStatus> {
+        let p = self.store.get(id)?;
+        if p.mode != Mode::DrakesJava || p.loader != Loader::Fabric {
+            return Err(AppError::Invalid(format!("'{id}' no es un perfil drakes-java con Fabric")));
+        }
+        // el cargador decide que se carga ANTES de ejecutar, y carga los nativos
+        self.mods_decide(id)?;
+        self.native_load(id)?;
+        let settings = self.settings();
+        let plan = fabric::plan(&self.layout, &p, &settings.java_bin(), &fabric::username(&settings, &p))?;
+        let st = fabric::status(&self.layout, &p);
+        if !st.ready {
+            return Err(AppError::NotFound(format!("el cliente no esta instalado ({})", st.reason.unwrap_or_default())));
+        }
+        instances::ensure_dirs(&self.layout, &p)?;
+        self.procs.start(id, &plan, &self.layout.logs_dir(id))
+    }
+
+    /// Detiene el cliente Java del perfil.
+    pub fn client_stop(&self, id: &str) -> AppResult<()> {
+        let p = self.store.get(id)?;
+        if p.mode != Mode::DrakesJava {
+            return Err(AppError::Invalid(format!("'{id}' no es un perfil drakes-java")));
+        }
+        self.procs.stop(id, Some("stop"), Duration::from_secs(30)).map_err(AppError::from)
+    }
+
+    /// Informe del cargador de mods, sin aplicar nada.
+    pub fn mods_report(&self, id: &str) -> AppResult<crate::mods::LoadReport> {
+        let p = self.store.get(id)?;
+        crate::mods::load(&self.layout, &p, drakestar_core::mods::Environment::Client)
+    }
 }
 
 #[cfg(all(test, unix))]
@@ -105,6 +277,7 @@ mod tests {
     use crate::process::{ProcEvent, ProcState};
     use crate::store::tests::sample;
     use std::sync::Mutex;
+    use std::io::Write;
     use std::time::Instant;
 
     #[derive(Default)]
@@ -124,8 +297,7 @@ mod tests {
     }
 
     #[test]
-    fn start_requires_jar_and_eula() {
-        let svc = Service::new(Layout::new(crate::testutil::tmpdir("svc")), Arc::new(Collect::default()));
+    fn start_requires_jar_and_eula() {        let svc = Service::new(Layout::new(crate::testutil::tmpdir("svc")), Arc::new(Collect::default()));
         svc.create_profile(&sample("srv", Mode::LocalServer)).unwrap();
         assert!(matches!(svc.server_start("srv"), Err(AppError::NotFound(_))));
         let sd = ServerDir::new(svc.layout.server_dir("srv"));
@@ -137,6 +309,41 @@ mod tests {
         assert!(svc.server_start("nope").is_err());
         let e = svc.create_profile(&sample("on", Mode::Online)).and_then(|_| svc.server_start("on")).unwrap_err();
         assert!(e.to_string().contains("local-server"));
+    }
+
+    #[test]
+    fn native_mods_are_loaded_by_the_loader() {
+        let so = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../target/debug/libdrakestar_native_example.so");
+        if !so.exists() {
+            eprintln!("omitido: falta compilar el ejemplo");
+            return;
+        }
+        let svc = Service::new(Layout::new(crate::testutil::tmpdir("svc-native")), Arc::new(Collect::default()));
+        let mut p = sample("nat", Mode::DrakesJava);
+        p.loader = Loader::Fabric;
+        svc.create_profile(&p).unwrap();
+        // el mod nativo viaja como jar dentro de mods/
+        let mods = svc.layout.instance_dir("nat").join("mods");
+        std::fs::create_dir_all(&mods).unwrap();
+        let jar = mods.join("ejemplo.jar");
+        {
+            let f = std::fs::File::create(&jar).unwrap();
+            let mut z = zip::ZipWriter::new(f);
+            let opts: zip::write::SimpleFileOptions = Default::default();
+            z.start_file("fabric.mod.json", opts).unwrap();
+            z.write_all(br#"{"schemaVersion":1,"id":"ejemplo","version":"0.1.0","environment":"*","entrypoints":{"main":["x"]},"custom":{"drakes":{"abi":"1"}}}"#).unwrap();
+            z.start_file("drakestar_mod.so", opts).unwrap();
+            z.write_all(&std::fs::read(&so).unwrap()).unwrap();
+            z.finish().unwrap();
+        }
+        let cargados = svc.native_load("nat").unwrap();
+        assert_eq!(cargados, vec!["ejemplo".to_string()]);
+        assert!(svc.native.get("ejemplo").is_some());
+        assert_eq!(svc.native.get("ejemplo").unwrap().abi_label(), "2.0");
+        // y sigue vivo mientras viva el servicio
+        drop(svc.clone());
+        assert!(svc.native.get("ejemplo").is_some());
     }
 
     /// Prueba de extremo a extremo con Java real: compila un mini "servidor" de
