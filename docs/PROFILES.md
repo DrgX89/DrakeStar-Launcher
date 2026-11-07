@@ -9,7 +9,7 @@ Campos: `schema`, `id` (`[a-z0-9_-]{1,48}`), `name`, `mode` (`drakes-rust|drakes
 - `drakes-rust`: sin loader Java ni modpack.
 - `drakes-java`: `modpack` exige loader ≠ vanilla; sin `preset`.
 - `local-server`: sin loader ni modpack.
-- `online`: `server` obligatorio.
+- `online`: `server` obligatorio; sin loader ni modpack (es un perfil de conexión).
 - `min_mem_mb ≤ max_mem_mb`; `schema` desconocido se rechaza (no se adivina).
 
 Export/importación: el perfil es un único JSON autocontenido (los modpacks se referencian por id, no se incrustan). Ejemplos en `examples/`.

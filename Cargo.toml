@@ -1,6 +1,12 @@
 [workspace]
 resolver = "2"
-members = ["crates/drakestar-core", "crates/drakestar-cli"]
+members = [
+  "crates/drakestar-core",
+  "crates/drakestar-cli",
+  "crates/drakestar-net",
+  "crates/drakestar-app",
+  
+]
 
 [workspace.package]
 version = "0.1.0"

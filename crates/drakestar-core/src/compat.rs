@@ -1,8 +1,10 @@
 //! Matriz de compatibilidad HONESTA. Una sola fuente de verdad: la UI y el CLI la leen de aqui.
 
 use crate::profile::{Loader, Mode};
+use serde::Serialize;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Support {
     Yes,
     No,

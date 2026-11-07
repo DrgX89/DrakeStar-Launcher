@@ -151,6 +151,11 @@ impl Profile {
                 }
             }
             Mode::Online => {
+                if self.loader != Loader::Vanilla || self.modpack.is_some() {
+                    return Err(ProfileError::Field(
+                        "online es un perfil de conexion: sin loader ni modpack",
+                    ));
+                }
                 if self.server.as_deref().unwrap_or("").is_empty() {
                     return Err(ProfileError::Field("online requiere 'server'"));
                 }
@@ -215,6 +220,16 @@ mod tests {
         let mut q = base(Mode::DrakesJava);
         q.id = "Bad Id".into();
         assert!(matches!(q.validate(), Err(ProfileError::BadId(_))));
+    }
+
+    #[test]
+    fn online_has_no_loader_or_modpack() {
+        let mut p = base(Mode::Online);
+        p.loader = Loader::Forge;
+        assert!(p.validate().is_err());
+        p.loader = Loader::Vanilla;
+        p.modpack = Some("m".into());
+        assert!(p.validate().is_err());
     }
 
     #[test]

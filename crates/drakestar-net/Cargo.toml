@@ -1,0 +1,10 @@
+[package]
+name = "drakestar-net"
+description = "Descarga con verificacion SHA-256 para DrakeStar (sin dependencia de Tauri)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+sha2 = "0.10"
+ureq = "2"
