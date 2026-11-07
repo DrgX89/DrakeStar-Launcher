@@ -62,6 +62,11 @@ const COMPAT: ModeCompat[] = (() => {
   ];
 })();
 
+// Equivalente a los #[serde(default)] de drakestar-core al leer JSON parcial.
+function withDefaults(p: any): Profile {
+  return { schema: 1, channel: 'stable', loader: 'vanilla', server: null, preset: null, modpack: null, notes: '', ...p,
+    java: { major: null, min_mem_mb: 1024, max_mem_mb: 4096, extra_jvm_args: [], ...(p?.java ?? {}) } };
+}
 function validate(p: Profile): string | null {
   if (p.schema !== 1) return `schema ${p.schema} no soportado (esperado 1)`;
   if (!/^[a-z0-9_-]{1,48}$/.test(p.id)) return `id invalido '${p.id}' (usa a-z, 0-9, '-' y '_')`;
@@ -128,7 +133,7 @@ export async function mockInvoke(cmd: string, a: Record<string, any> = {}): Prom
       profiles.push(p); return p;
     }
     case 'import_profile': {
-      let p: Profile; try { p = JSON.parse(a.json); } catch (e) { throw `JSON invalido: ${e}`; }
+      let p: Profile; try { p = withDefaults(JSON.parse(a.json)); } catch (e) { throw `JSON invalido: ${e}`; }
       const e = validate(p); if (e) throw e;
       const exists = profiles.some((x) => x.id === p.id);
       if (exists && !a.overwrite) throw `ya existe: perfil '${p.id}'`;
