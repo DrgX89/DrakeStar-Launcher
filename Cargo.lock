@@ -832,6 +832,7 @@ version = "0.4.0-alpha"
 dependencies = [
  "drakestar-core",
  "serde_json",
+ "zip",
 ]
 
 [[package]]
