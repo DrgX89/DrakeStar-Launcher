@@ -1,11 +1,7 @@
 // Capa de acceso al backend. En Tauri llama a los comandos reales (drakestar-app).
 // En un navegador normal (vite dev / capturas) usa un MOCK en memoria, claramente marcado
 // en la UI (AppInfo.backend === 'mock'): no ejecuta procesos ni toca el disco.
-import type {
-  AppInfo, JavaCheck, ModeCompat, Profile, ProfileList, ProcEvent, ProcStatus, LineRec,
-  Settings, InstanceRow, LogFile, ServerStatus, Prop, PluginInfo, WorldInfo, Resolution,
-  DeltaSyncPlan, DeltaSyncResult, ConflictReport, McStatus
-} from './types';
+import type { AppInfo, JavaCheck, ModeCompat, Profile, ProfileList, ProcEvent, ProcStatus, LineRec, Settings, InstanceRow, LogFile, ServerStatus, Prop, PluginInfo, WorldInfo, Resolution, DeltaSyncPlan, DeltaSyncResult, ConflictReport, McStatus, LoadReport, RustClientStatus } from './types';
 
 type Invoke = <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
 type Listen = (cb: (e: ProcEvent) => void) => Promise<() => void>;
@@ -84,7 +80,16 @@ export const api = {
   modpackDeltaPlan: (id: string, manifestJson: string) => call<DeltaSyncPlan>('modpack_delta_plan', { id, manifestJson }),
   modpackDeltaApply: (id: string, manifestJson: string) => call<DeltaSyncResult>('modpack_delta_apply', { id, manifestJson }),
   analyzeFabricConflicts: (manifestJson: string) => call<ConflictReport>('analyze_fabric_conflicts', { manifestJson }),
+
   ping: (address: string) => call<number>('ping_server', { address }),
   pingMcStatus: (address: string) => call<McStatus>('ping_mc_status', { address }),
   diagnostics: () => call<string>('diagnostics'),
+  modsReport: (id: string) => call<LoadReport>('mods_report', { id }),
+  modsDecide: (id: string) => call<LoadReport>('mods_decide', { id }),
+  rustStatus: (id: string) => call<RustClientStatus>('rust_client_status', { id }),
+  rustPlan: (id: string) => call<string>('rust_client_plan', { id }),
+  rustInstall: (id: string) => call<RustClientStatus>('rust_client_install', { id }),
+  rustStart: (id: string) => call<ProcStatus>('rust_client_start', { id }),
+  rustStop: (id: string) => call<void>('rust_client_stop', { id }),
+  rustCommand: (id: string, line: string) => call<void>('rust_client_command', { id, line }),
 };

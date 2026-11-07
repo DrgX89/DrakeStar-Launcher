@@ -51,6 +51,21 @@ pub fn local_server_plan(
     })
 }
 
+/// Plan del cliente Rust (DrakesRust). El binario lo aporta el gestor de releases
+/// (`drakestar-app::rustclient`); aqui solo se arma la linea de comandos.
+/// `None` si el perfil no es drakes-rust o no declara servidor al que conectar.
+pub fn rust_client_plan(p: &Profile, client_bin: &str, root: &str, username: &str) -> Option<LaunchPlan> {
+    if p.mode != Mode::DrakesRust {
+        return None;
+    }
+    let server = p.server.as_deref().map(str::trim).filter(|s| !s.is_empty())?;
+    Some(LaunchPlan {
+        program: client_bin.into(),
+        args: vec!["--server".into(), server.to_string(), "--name".into(), username.to_string()],
+        cwd: format!("{root}/profiles/{}/instance", p.id),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -86,5 +101,37 @@ mod tests {
         assert_eq!(plan.cwd, "/d/profiles/dev/server");
         p.mode = Mode::Online;
         assert!(local_server_plan(&p, "java", "x", "/d").is_none());
+    }
+
+    fn rust_profile(server: Option<&str>) -> Profile {
+        Profile {
+            schema: 1,
+            id: "rust".into(),
+            name: "Rust".into(),
+            mode: Mode::DrakesRust,
+            channel: Channel::Stable,
+            minecraft: "26.2".into(),
+            loader: Loader::Vanilla,
+            java: JavaSettings::default(),
+            server: server.map(str::to_string),
+            preset: None,
+            modpack: None,
+            notes: String::new(),
+        }
+    }
+
+    #[test]
+    fn rust_client_plan_carries_server_and_user() {
+        let plan = rust_client_plan(&rust_profile(Some("localhost:25565")), "/bin/drakestar-rust-client", "/d", "nix").unwrap();
+        assert_eq!(plan.program, "/bin/drakestar-rust-client");
+        assert_eq!(plan.args, vec!["--server", "localhost:25565", "--name", "nix"]);
+        assert_eq!(plan.cwd, "/d/profiles/rust/instance");
+        // sin servidor al que conectar no hay plan
+        assert!(rust_client_plan(&rust_profile(None), "x", "/d", "nix").is_none());
+        assert!(rust_client_plan(&rust_profile(Some(" ")), "x", "/d", "nix").is_none());
+        // ni para otros modos
+        let mut p = rust_profile(Some("localhost"));
+        p.mode = Mode::DrakesJava;
+        assert!(rust_client_plan(&p, "x", "/d", "nix").is_none());
     }
 }

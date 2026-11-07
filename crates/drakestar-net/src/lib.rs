@@ -1,13 +1,49 @@
 //! Descarga y verificacion de artefactos. Politica:
 //! - solo `https://` (o `http://` hacia loopback, para pruebas locales);
-//! - se escribe a `<dest>.part`, se calcula SHA-256 en streaming y SOLO si coincide
+//! - se escribe a `<dest>.part`, se calcula el hash en streaming y SOLO si coincide
 //!   (y el tamano, si se conoce) se renombra a `dest`; si no, se borra el parcial;
 //! - nunca se ejecuta nada descargado.
+//!
+//! El hash esperado puede ser SHA-256 (nuestro manifiesto) o SHA-1 (los JSON de
+//! version y de Fabric de Mojang); se distingue por la longitud y se calculan
+//! ambos mientras se escribe, asi el streaming no depende de cual se pidio.
 
+use sha1::Sha1;
 use sha2::{Digest, Sha256};
 use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+
+/// Hash esperado de un artefacto, con el algoritmo implicito en su longitud.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Hash {
+    /// 64 hex: nuestro manifiesto de releases.
+    Sha256(String),
+    /// 40 hex: los JSON de Mojang y de Fabric.
+    Sha1(String),
+}
+
+impl Hash {
+    /// `None` si no es un hex de 40 o 64 caracteres.
+    pub fn parse(s: &str) -> Option<Hash> {
+        let s = s.trim();
+        let hex = |n: usize| s.len() == n && s.bytes().all(|b| b.is_ascii_hexdigit());
+        if hex(64) {
+            Some(Hash::Sha256(s.to_ascii_lowercase()))
+        } else if hex(40) {
+            Some(Hash::Sha1(s.to_ascii_lowercase()))
+        } else {
+            None
+        }
+    }
+
+    fn matches(&self, actual: &str) -> bool {
+        let expected = match self {
+            Hash::Sha256(e) | Hash::Sha1(e) => e,
+        };
+        actual.eq_ignore_ascii_case(expected)
+    }
+}
 
 #[derive(Debug)]
 pub enum NetError {
@@ -43,12 +79,31 @@ impl From<std::io::Error> for NetError {
 }
 
 pub fn sha256_wellformed(s: &str) -> bool {
-    s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit())
+    matches!(Hash::parse(s), Some(Hash::Sha256(_)))
+}
+
+/// SHA-1 bien formado (lo que publican los JSON de Mojang/Fabric).
+pub fn sha1_wellformed(s: &str) -> bool {
+    matches!(Hash::parse(s), Some(Hash::Sha1(_)))
 }
 
 pub fn sha256_file(path: &Path) -> Result<String, NetError> {
     let mut f = File::open(path)?;
     let mut h = Sha256::new();
+    let mut buf = [0u8; 64 * 1024];
+    loop {
+        let n = f.read(&mut buf)?;
+        if n == 0 {
+            break;
+        }
+        h.update(&buf[..n]);
+    }
+    Ok(hex(&h.finalize()))
+}
+
+pub fn sha1_file(path: &Path) -> Result<String, NetError> {
+    let mut f = File::open(path)?;
+    let mut h = Sha1::new();
     let mut buf = [0u8; 64 * 1024];
     loop {
         let n = f.read(&mut buf)?;
@@ -85,9 +140,7 @@ pub fn store_verified<R: Read>(
     expected_size: Option<u64>,
     mut progress: impl FnMut(u64),
 ) -> Result<u64, NetError> {
-    if !sha256_wellformed(expected_sha256) {
-        return Err(NetError::BadSha(expected_sha256.into()));
-    }
+    let expected = Hash::parse(expected_sha256).ok_or_else(|| NetError::BadSha(expected_sha256.into()))?;
     if let Some(parent) = dest.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -98,7 +151,8 @@ pub fn store_verified<R: Read>(
     };
     let result = (|| -> Result<u64, NetError> {
         let mut out = File::create(&part)?;
-        let mut h = Sha256::new();
+        let mut h256 = Sha256::new();
+        let mut h1 = Sha1::new();
         let mut total = 0u64;
         let mut buf = [0u8; 64 * 1024];
         loop {
@@ -106,16 +160,22 @@ pub fn store_verified<R: Read>(
             if n == 0 {
                 break;
             }
-            h.update(&buf[..n]);
+            h256.update(&buf[..n]);
+            h1.update(&buf[..n]);
             out.write_all(&buf[..n])?;
             total += n as u64;
             progress(total);
         }
         out.flush()?;
-        let actual = hex(&h.finalize());
-        if !actual.eq_ignore_ascii_case(expected_sha256) {
+        let actual = match expected {
+            Hash::Sha256(_) => hex(&h256.finalize()),
+            Hash::Sha1(_) => hex(&h1.finalize()),
+        };
+        if !expected.matches(&actual) {
             return Err(NetError::ShaMismatch {
-                expected: expected_sha256.to_lowercase(),
+                expected: match &expected {
+                    Hash::Sha256(e) | Hash::Sha1(e) => e.clone(),
+                },
                 actual,
             });
         }
@@ -138,6 +198,20 @@ pub fn store_verified<R: Read>(
     }
 }
 
+/// Lee una URL https (o loopback) como texto: los JSON de Mojang y de Fabric.
+/// La verificacion de esos JSON corre por cuenta de quien los usa (hashes de
+/// artefactos o firma, cuando exista).
+pub fn fetch_text(url: &str) -> Result<String, NetError> {
+    if !url_allowed(url) {
+        return Err(NetError::InsecureUrl(url.into()));
+    }
+    let resp = ureq::get(url)
+        .timeout(std::time::Duration::from_secs(60))
+        .call()
+        .map_err(|e| NetError::Http(e.to_string()))?;
+    resp.into_string().map_err(|e| NetError::Http(e.to_string()))
+}
+
 /// Descarga `url` a `dest` verificando SHA-256 (y tamano si `expected_size` es `Some(>0)`).
 pub fn download_verified(
     url: &str,
@@ -149,7 +223,7 @@ pub fn download_verified(
     if !url_allowed(url) {
         return Err(NetError::InsecureUrl(url.into()));
     }
-    if !sha256_wellformed(expected_sha256) {
+    if Hash::parse(expected_sha256).is_none() {
         return Err(NetError::BadSha(expected_sha256.into()));
     }
     let resp = ureq::get(url)
@@ -183,6 +257,23 @@ mod tests {
         assert_eq!(fs::read(&dest).unwrap(), b"hello");
         assert_eq!(sha256_file(&dest).unwrap(), HELLO_SHA);
         assert!(!d.join("a.jar.part").exists());
+    }
+
+    #[test]
+    fn stores_when_sha1_matches() {
+        let hello_sha1 = "aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d";
+        let d = tmp("sha1");
+        let dest = d.join("a.jar");
+        let n = store_verified(Cursor::new(b"hello"), &dest, hello_sha1, Some(5), |_| {}).unwrap();
+        assert_eq!(n, 5);
+        assert_eq!(fs::read(&dest).unwrap(), b"hello");
+        assert!(!d.join("a.jar.part").exists());
+        // sha1 mal formado o que no coincide: se rechaza antes de escribir
+        let e = store_verified(Cursor::new(b"hello"), &dest, "aaf4c61d", None, |_| {}).unwrap_err();
+        assert!(matches!(e, NetError::BadSha(_)));
+        let bad = "aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434e";
+        assert!(store_verified(Cursor::new(b"hello"), &d.join("b.jar"), bad, None, |_| {}).is_err());
+        assert!(sha1_wellformed(hello_sha1) && !sha1_wellformed(&"a".repeat(64)));
     }
 
     #[test]

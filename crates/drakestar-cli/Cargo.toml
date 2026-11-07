@@ -10,5 +10,6 @@ name = "drakestar"
 path = "src/main.rs"
 
 [dependencies]
+zip = "2"
 drakestar-core = { path = "../drakestar-core" }
 serde_json.workspace = true

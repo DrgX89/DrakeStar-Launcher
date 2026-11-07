@@ -6,6 +6,9 @@ pub struct Settings {
     /// Ruta al ejecutable de Java. `None` = `java` del PATH.
     #[serde(default)]
     pub java_path: Option<String>,
+    /// Nombre de usuario para el modo offline de los clientes.
+    #[serde(default)]
+    pub username: Option<String>,
     /// Perfil activo en la UI.
     #[serde(default)]
     pub active_profile: Option<String>,
@@ -38,7 +41,11 @@ mod tests {
         let l = Layout::new(crate::testutil::tmpdir("settings"));
         assert_eq!(Settings::load(&l), Settings::default());
         assert_eq!(Settings::default().java_bin(), "java");
-        let s = Settings { java_path: Some("/opt/j/bin/java".into()), active_profile: Some("a".into()) };
+        let s = Settings {
+            java_path: Some("/opt/j/bin/java".into()),
+            username: Some("nix".into()),
+            active_profile: Some("a".into()),
+        };
         s.save(&l).unwrap();
         assert_eq!(Settings::load(&l), s);
         assert_eq!(s.java_bin(), "/opt/j/bin/java");
