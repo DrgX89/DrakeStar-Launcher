@@ -1,0 +1,57 @@
+{
+  "schema": 1,
+  "releases": [
+    {
+      "version": "26.2.140",
+      "channel": "stable",
+      "minecraft": [
+        "26.2"
+      ],
+      "notes": "DrakesPurpur 26.2 build 140 Monolith & Rust Panama FFM Hybrid Engine (Java 25 LTS)",
+      "artifacts": [
+        {
+          "component": "drakespurpur",
+          "platform": "any",
+          "url": "https://github.com/SlimefunNewHorizons/DrakesPurpur/releases/download/v26.2.140-stable/server.jar",
+          "sha256": "750811c856cb0e36a9b117598d7d57834b53779f5d17d84ca04f47e747f00145",
+          "size": 97296375
+        }
+      ]
+    },
+    {
+      "version": "0.3.0",
+      "channel": "unstable",
+      "minecraft": [
+        "26.2"
+      ],
+      "notes": "DrakeStar-Launcher v0.3.0-alpha · Delta Modpack Sync & Pre-Launch Fabric/Mixin Conflict Analyzer",
+      "artifacts": [
+        {
+          "component": "launcher",
+          "platform": "windows-x86_64",
+          "url": "https://github.com/SlimefunNewHorizons/DrakeStar-Launcher/releases/tag/v0.3.0-alpha",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+          "size": 0
+        }
+      ]
+    },
+    {
+      "version": "2026.11.05",
+      "channel": "nightly",
+      "minecraft": [
+        "26.2",
+        "26.3"
+      ],
+      "notes": "DrakesRust Native Client (Horizon Engine 26.3 Rust Client with v26.2 protocol adapter)",
+      "artifacts": [
+        {
+          "component": "drakes-rust-client",
+          "platform": "windows-x86_64",
+          "url": "https://github.com/horizon-rust/horizon/releases/download/nightly/horizon-windows-x64.zip",
+          "sha256": "0e3157a74c56249573f42624d64bc87774324dec1cd20ba6518c784b7293eda0",
+          "size": 40474460
+        }
+      ]
+    }
+  ]
+}
