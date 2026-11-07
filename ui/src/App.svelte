@@ -1,0 +1,111 @@
+<script lang="ts">
+  import { onMount, type Component } from 'svelte';
+  import { app } from './lib/state.svelte';
+  import { router, routes, type RouteDef } from './lib/router.svelte';
+  import { brand, modeHome, modeLabel } from './lib/brand';
+  import type { Mode, Profile } from './lib/types';
+  import Gate from './components/Gate.svelte';
+  import Home from './views/Home.svelte';
+  import Profiles from './views/Profiles.svelte';
+  import Instances from './views/Instances.svelte';
+  import Rust from './views/Rust.svelte';
+  import Java from './views/Java.svelte';
+  import Modpacks from './views/Modpacks.svelte';
+  import Forge from './views/Forge.svelte';
+  import Console from './views/Console.svelte';
+  import Plugins from './views/Plugins.svelte';
+  import Worlds from './views/Worlds.svelte';
+  import Online from './views/Online.svelte';
+  import Updates from './views/Updates.svelte';
+  import About from './views/About.svelte';
+
+  let fatal = $state<string | null>(null);
+  onMount(() => { app.init().catch((e) => (fatal = e instanceof Error ? e.message : String(e))); });
+
+  const views: Record<string, Component<any>> = {
+    '/': Home, '/profiles': Profiles, '/instances': Instances, '/rust': Rust, '/java': Java, '/java/modpacks': Modpacks,
+    '/forge': Forge, '/forge/console': Console, '/forge/plugins': Plugins, '/forge/worlds': Worlds,
+    '/online': Online, '/settings/updates': Updates, '/settings/about': About,
+  };
+  const icons: Record<string, string> = {
+    '/': brand.isotype, '/profiles': brand.icon('profile'), '/instances': brand.icon('world'), '/settings/updates': brand.icon('update'),
+    '/settings/about': brand.icon('settings'), '/forge/console': brand.icon('console'), '/forge/plugins': brand.icon('plugin'),
+    '/forge/worlds': brand.icon('world'), '/java/modpacks': brand.icon('modpack'),
+  };
+  const modes: Mode[] = ['drakes-rust', 'drakes-java', 'local-server', 'online'];
+
+  const active = $derived(app.active);
+  const def = $derived(router.def);
+  const View = $derived(views[def.path] ?? Home);
+  const gated = $derived(!!def.mode && active?.mode !== def.mode);
+  const general = routes.filter((r) => !r.mode && !r.path.startsWith('/settings'));
+  const settingsRoutes = routes.filter((r) => r.path.startsWith('/settings'));
+  const modeRoutes = $derived(active ? routes.filter((r) => r.mode === active.mode) : []);
+
+  function pickMode(m: Mode) {
+    const cur = app.active?.mode === m ? app.active : app.profiles.find((p) => p.mode === m);
+    if (cur && cur.id !== app.settings.active_profile) void app.setActive(cur.id);
+    router.go(cur ? modeHome[m] : '/profiles');
+    if (!cur) app.notify('info', `No tienes perfiles de ${modeLabel[m]}: crea uno.`);
+  }
+  async function onSelect(e: Event) { await app.setActive((e.currentTarget as HTMLSelectElement).value || null); }
+  $effect(() => { document.title = `${def.title} · DrakeStar`; });
+</script>
+
+<a class="skip" href="#main">Saltar al contenido</a>
+<div class="root">
+  {#if app.info?.backend === 'mock'}
+    <div class="mockbar" role="note"><strong>MODO NAVEGADOR (MOCK)</strong> — el backend está simulado en memoria: no hay disco, procesos ni red reales. En la app Tauri esto es el backend Rust real.</div>
+  {/if}
+  <header class="topbar">
+    <a class="brand" href="#/" aria-label="DrakeStar, inicio"><img src={brand.logo} alt="DrakeStar" /></a>
+    <div role="group" aria-label="Selector de modo" class="tabs">
+      {#each modes as m (m)}
+        <button onclick={() => pickMode(m)} aria-pressed={active?.mode === m} aria-label={modeLabel[m]}><img src={brand.tab(m, active?.mode === m)} alt={modeLabel[m]} /></button>
+      {/each}
+    </div>
+  </header>
+  <div class="body">
+    <aside class="sidebar">
+      <div class="field" style="margin:0">
+        <label for="active-profile">Perfil activo</label>
+        <select id="active-profile" value={app.settings.active_profile ?? ''} onchange={onSelect}>
+          {#if !app.profiles.length}<option value="">(sin perfiles)</option>{/if}
+          {#each app.profiles as p (p.id)}<option value={p.id}>{p.name} · {p.channel}</option>{/each}
+        </select>
+      </div>
+      <nav aria-label="Navegación principal">
+        <h3>General</h3>
+        {#each general as r (r.path)}
+          <a class="navlink" href={`#${r.path}`} aria-current={router.path === r.path ? 'page' : undefined}><img src={icons[r.path] ?? brand.isotype} alt="" />{r.title}</a>
+        {/each}
+        {#if active}
+          <h3>{modeLabel[active.mode]}</h3>
+          {#each modeRoutes as r (r.path)}
+            <a class="navlink" class:sub={r.path.split('/').length > 2} href={`#${r.path}`} aria-current={router.path === r.path ? 'page' : undefined}><img src={icons[r.path] ?? brand.modeIcon(active.mode)} alt="" />{r.title}</a>
+          {/each}
+        {/if}
+        <h3>Ajustes</h3>
+        {#each settingsRoutes as r (r.path)}
+          <a class="navlink" href={`#${r.path}`} aria-current={router.path === r.path ? 'page' : undefined}><img src={icons[r.path] ?? brand.icon('settings')} alt="" />{r.title}</a>
+        {/each}
+      </nav>
+    </aside>
+    <main id="main" tabindex="-1">
+      {#if fatal}
+        <div class="alert err" role="alert">No se pudo iniciar la interfaz: {fatal}</div>
+      {:else if !app.ready}
+        <p class="muted" role="status">Cargando…</p>
+      {:else if gated && def.mode}
+        <Gate mode={def.mode} />
+      {:else}
+        {#key def.path + (active?.id ?? '')}
+          <View p={active as Profile} />
+        {/key}
+      {/if}
+    </main>
+  </div>
+  {#if app.toast}
+    <div class="toast {app.toast.kind}" role={app.toast.kind === 'err' ? 'alert' : 'status'}>{app.toast.text}</div>
+  {/if}
+</div>
