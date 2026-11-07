@@ -6,7 +6,7 @@ use drakestar_app::{
     instances::{self, InstanceInfo, LogFile},
     java::{self, JavaInfo},
     modsync::{self, ConflictReport, DeltaSyncPlan, DeltaSyncResult, ServerModManifest},
-    ping::{self, McStatus},
+    ping::{self, ServerStatusPing},
     process::{EventSink, LineRec, ProcEvent, ProcStatus},
     release::{self, Resolution},
     server::{PluginInfo, Prop, ServerStatus, WorldInfo},
