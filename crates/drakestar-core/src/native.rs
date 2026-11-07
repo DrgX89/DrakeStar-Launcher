@@ -99,6 +99,7 @@ mod tests {
         assert_eq!(motor, 2);
     }
 
+    #[test]
     fn layout_is_stable() {
         // estos tamanos son parte del contrato: si cambian, hay que subir el ABI.
         // HookTable = u32 + userdata + 2 punteros; ModVTable = u32 + 3 punteros.

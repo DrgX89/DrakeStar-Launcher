@@ -13,7 +13,7 @@ fn binary_connects_and_exits_zero() {
     let server = std::thread::spawn(move || {
         let (mut s, _) = lst.accept().unwrap();
         let mut r = s.try_clone().unwrap();
-        let read_packet = |r: &mut dyn Read| (drakestar_rust_client::proto::read_packet(r).unwrap());
+        let read_packet = |r: &mut dyn Read| drakestar_rust_client::proto::read_packet(r).unwrap();
         use drakestar_rust_client::proto as proto;
         let (hs, _) = read_packet(&mut r); // handshake
         assert_eq!(hs, 0x00);
