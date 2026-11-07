@@ -5,10 +5,13 @@ use drakestar_app::{
     compat_report::{self, ModeCompat},
     instances::{self, InstanceInfo, LogFile},
     java::{self, JavaInfo},
+    fabric::ClientStatus,
+    mods,
     modsync::{self, ConflictReport, DeltaSyncPlan, DeltaSyncResult, ServerModManifest},
     ping::{self, ServerStatusPing},
     process::{EventSink, LineRec, ProcEvent, ProcStatus},
     release::{self, Resolution},
+    rustclient::RustClientStatus,
     server::{PluginInfo, Prop, ServerStatus, WorldInfo},
     service::Service,
     settings::Settings,
@@ -322,8 +325,70 @@ async fn ping_server(address: String) -> Res<u128> {
     blocking(move || ping::tcp_ping(&address, Duration::from_secs(4)).map_err(s)).await?
 }
 #[tauri::command]
-async fn ping_mc_status(address: String) -> Res<McStatus> {
+async fn ping_mc_status(address: String) -> Res<ServerStatusPing> {
     blocking(move || ping::mc_status_ping(&address, Duration::from_secs(4)).map_err(s)).await?
+}
+
+// ---------- cliente Java gestionado (Fabric) ----------
+#[tauri::command]
+fn client_status(svc: State<'_, Service>, id: String) -> Res<ClientStatus> {
+    svc.client_status(&id).map_err(s)
+}
+#[tauri::command]
+async fn client_install(svc: State<'_, Service>, id: String) -> Res<ClientStatus> {
+    let svc = svc.inner().clone();
+    blocking(move || svc.client_install(&id).map_err(s)).await?
+}
+#[tauri::command]
+fn client_plan(svc: State<'_, Service>, id: String) -> Res<String> {
+    svc.client_plan(&id).map_err(s)
+}
+#[tauri::command]
+fn client_start(svc: State<'_, Service>, id: String) -> Res<ProcStatus> {
+    svc.client_start(&id).map_err(s)
+}
+#[tauri::command]
+fn client_stop(svc: State<'_, Service>, id: String) -> Res<()> {
+    svc.client_stop(&id).map_err(s)
+}
+
+// ---------- cliente Rust gestionado (DrakesRust) ----------
+#[tauri::command]
+fn rust_client_status(svc: State<'_, Service>, id: String) -> Res<RustClientStatus> {
+    svc.rust_client_status(&id).map_err(s)
+}
+#[tauri::command]
+async fn rust_client_install(svc: State<'_, Service>, id: String) -> Res<RustClientStatus> {
+    let svc = svc.inner().clone();
+    blocking(move || svc.rust_client_install(&id).map_err(s)).await?
+}
+#[tauri::command]
+fn rust_client_plan(svc: State<'_, Service>, id: String) -> Res<String> {
+    let plan = svc.rust_client_plan(&id).map_err(s)?;
+    Ok(format!("{} {}\n(cwd: {})", plan.program, plan.args.join(" "), plan.cwd))
+}
+#[tauri::command]
+fn rust_client_start(svc: State<'_, Service>, id: String) -> Res<ProcStatus> {
+    svc.rust_client_start(&id).map_err(s)
+}
+#[tauri::command]
+fn rust_client_stop(svc: State<'_, Service>, id: String) -> Res<()> {
+    svc.rust_client_stop(&id).map_err(s)
+}
+#[tauri::command]
+fn rust_client_command(svc: State<'_, Service>, id: String, line: String) -> Res<()> {
+    svc.rust_client_command(&id, &line).map_err(s)
+}
+
+// ---------- mods (cargador) ----------
+#[tauri::command]
+fn mods_report(svc: State<'_, Service>, id: String) -> Res<mods::LoadReport> {
+    let p = svc.store.get(&id).map_err(s)?;
+    mods::load(&svc.layout, &p, drakestar_core::mods::Environment::Client).map_err(s)
+}
+#[tauri::command]
+fn mods_decide(svc: State<'_, Service>, id: String) -> Res<mods::LoadReport> {
+    svc.mods_decide(&id).map_err(s)
 }
 
 #[tauri::command]
@@ -369,7 +434,10 @@ pub fn run() {
             server_properties, server_set_properties, server_plugins, server_toggle_plugin, server_worlds,
             server_backup_world, manifest_import, manifest_summary, resolve_release, install_server_jar,
             modpack_delta_plan, modpack_delta_apply, analyze_fabric_conflicts,
-            ping_server, ping_mc_status, diagnostics
+            ping_server, ping_mc_status, diagnostics,
+            client_status, client_install, client_plan, client_start, client_stop,
+            rust_client_status, rust_client_install, rust_client_plan, rust_client_start,
+            rust_client_stop, rust_client_command, mods_report, mods_decide
         ])
         .run(tauri::generate_context!())
         .expect("error al ejecutar DrakeStar");

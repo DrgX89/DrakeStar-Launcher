@@ -139,3 +139,32 @@ export interface McStatus {
   players_max: number;
   motd: string;
 }
+
+/** Estado del cliente Rust nativo (`drakestar_app::rustclient`). */
+export interface RustClientStatus {
+  profile: string;
+  binary: string;
+  installed: boolean;
+  executable: boolean;
+  version: string | null;
+  ready: boolean;
+  reason: string | null;
+}
+
+/** Informe del cargador de mods (`drakestar_app::mods`). */
+export interface LoadReport {
+  discovered: number;
+  verified: number;
+  /** ids en orden de carga (dependencias primero). */
+  order: string[];
+  /** id -> motivo por el que no carga. */
+  not_loaded: [string, string][];
+  /** id -> runtime, ABI. */
+  abi: [string, string, string][];
+  /** jars a agregar al classpath, en orden. */
+  classpath: string[];
+  warnings: [string, string][];
+  bytes: number;
+  /** jars que no eran mods de Fabric validos. */
+  skipped: string[];
+}

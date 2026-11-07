@@ -5,11 +5,13 @@ members = [
   "crates/drakestar-cli",
   "crates/drakestar-net",
   "crates/drakestar-app",
+  "crates/drakestar-rust-client",
+  "crates/drakestar-native-example",
   "src-tauri",
 ]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.4.0-alpha"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/SlimefunNewHorizons/DrakeStar-Launcher"

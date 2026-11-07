@@ -219,6 +219,14 @@ export async function mockInvoke(cmd: string, a: Record<string, any> = {}): Prom
     }
     case 'install_server_jar': throw '[MOCK] la descarga real solo existe en la app Tauri';
     case 'ping_server': throw '[MOCK] el ping TCP real solo existe en la app Tauri';
+    case 'mods_report':
+    case 'mods_decide': return delay({ discovered: 138, verified: 138, order: ['fabric-api', 'sodium', 'distanthorizons'], not_loaded: [], abi: [['fabric-api', 'Java (JVM)', '2.0'], ['sodium', 'Java (JVM)', '2.0']], classpath: [], warnings: [], bytes: 157_000_000, skipped: ['algo-forge.jar: no es Fabric'] });
+    case 'rust_client_status': return { profile: a.id, binary: '(mock)', installed: false, executable: false, version: null, ready: false, reason: 'el cliente no esta instalado todavia' };
+    case 'rust_client_plan': throw 'no encontrado: cliente no instalado';
+    case 'rust_client_install': throw '[MOCK] la descarga real solo existe en la app Tauri';
+    case 'rust_client_start': throw 'no encontrado: cliente no instalado';
+    case 'rust_client_stop':
+    case 'rust_client_command': throw `'${a.id}' no esta en ejecucion`;
     case 'diagnostics': return JSON.stringify({ app: 'DrakeStar', backend: 'mock', nota: 'diagnostico simulado, no del sistema real' }, null, 2);
     default: throw `comando desconocido en el mock: ${cmd}`;
   }
