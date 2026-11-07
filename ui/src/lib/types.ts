@@ -94,3 +94,48 @@ export interface Resolution {
   };
   reason: string | null;
 }
+
+export interface ModEntry {
+  file: string;
+  id: string;
+  version: string;
+  sha256: string;
+  size: number;
+  url: string;
+  required?: boolean;
+  depends?: string[];
+  conflicts?: string[];
+  mixin_targets?: string[];
+}
+
+export interface DeltaSyncPlan {
+  unchanged: string[];
+  to_download: ModEntry[];
+  to_remove: string[];
+  total_download_bytes: number;
+}
+
+export interface DeltaSyncResult {
+  downloaded: string[];
+  removed: string[];
+  unchanged: string[];
+  bytes_downloaded: number;
+}
+
+export interface ConflictReport {
+  compatible: boolean;
+  mods_analyzed: number;
+  missing_dependencies: string[];
+  explicit_conflicts: string[];
+  duplicate_ids: string[];
+  mixin_collisions: string[];
+}
+
+export interface McStatus {
+  latency_ms: number;
+  version_name: string;
+  protocol: number;
+  players_online: number;
+  players_max: number;
+  motd: string;
+}

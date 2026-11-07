@@ -1,7 +1,11 @@
 // Capa de acceso al backend. En Tauri llama a los comandos reales (drakestar-app).
 // En un navegador normal (vite dev / capturas) usa un MOCK en memoria, claramente marcado
 // en la UI (AppInfo.backend === 'mock'): no ejecuta procesos ni toca el disco.
-import type { AppInfo, JavaCheck, ModeCompat, Profile, ProfileList, ProcEvent, ProcStatus, LineRec, Settings, InstanceRow, LogFile, ServerStatus, Prop, PluginInfo, WorldInfo, Resolution } from './types';
+import type {
+  AppInfo, JavaCheck, ModeCompat, Profile, ProfileList, ProcEvent, ProcStatus, LineRec,
+  Settings, InstanceRow, LogFile, ServerStatus, Prop, PluginInfo, WorldInfo, Resolution,
+  DeltaSyncPlan, DeltaSyncResult, ConflictReport, McStatus
+} from './types';
 
 type Invoke = <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
 type Listen = (cb: (e: ProcEvent) => void) => Promise<() => void>;
@@ -72,10 +76,15 @@ export const api = {
   plugins: (id: string) => call<PluginInfo[]>('server_plugins', { id }),
   togglePlugin: (id: string, file: string) => call<string>('server_toggle_plugin', { id, file }),
   worlds: (id: string) => call<WorldInfo[]>('server_worlds', { id }),
+  backupWorld: (id: string, worldName: string) => call<string>('server_backup_world', { id, worldName }),
   manifestImport: (json: string) => call<number>('manifest_import', { json }),
   manifestSummary: () => call<number | null>('manifest_summary'),
   resolveRelease: (id: string) => call<Resolution>('resolve_release', { id }),
   installServerJar: (id: string) => call<number>('install_server_jar', { id }),
+  modpackDeltaPlan: (id: string, manifestJson: string) => call<DeltaSyncPlan>('modpack_delta_plan', { id, manifestJson }),
+  modpackDeltaApply: (id: string, manifestJson: string) => call<DeltaSyncResult>('modpack_delta_apply', { id, manifestJson }),
+  analyzeFabricConflicts: (manifestJson: string) => call<ConflictReport>('analyze_fabric_conflicts', { manifestJson }),
   ping: (address: string) => call<number>('ping_server', { address }),
+  pingMcStatus: (address: string) => call<McStatus>('ping_mc_status', { address }),
   diagnostics: () => call<string>('diagnostics'),
 };

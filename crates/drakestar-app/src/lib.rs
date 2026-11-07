@@ -1,6 +1,6 @@
 //! Logica de aplicacion de DrakeStar, independiente de Tauri:
 //! almacen de perfiles, instancias, gestor de procesos con logs, gestion del
-//! directorio del servidor local, resolucion/descarga de releases.
+//! directorio del servidor local, resolucion/descarga de releases y delta-sync de mods.
 //! El crate `src-tauri` solo expone estas funciones como comandos IPC.
 
 pub mod compat_report;
@@ -8,6 +8,7 @@ pub mod error;
 pub mod instances;
 pub mod java;
 pub mod layout;
+pub mod modsync;
 pub mod ping;
 pub mod process;
 pub mod release;

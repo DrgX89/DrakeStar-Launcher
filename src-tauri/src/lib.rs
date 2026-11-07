@@ -5,7 +5,8 @@ use drakestar_app::{
     compat_report::{self, ModeCompat},
     instances::{self, InstanceInfo, LogFile},
     java::{self, JavaInfo},
-    ping,
+    modsync::{self, ConflictReport, DeltaSyncPlan, DeltaSyncResult, ServerModManifest},
+    ping::{self, McStatus},
     process::{EventSink, LineRec, ProcEvent, ProcStatus},
     release::{self, Resolution},
     server::{PluginInfo, Prop, ServerStatus, WorldInfo},
@@ -252,6 +253,17 @@ fn server_toggle_plugin(svc: State<'_, Service>, id: String, file: String) -> Re
 fn server_worlds(svc: State<'_, Service>, id: String) -> Res<Vec<WorldInfo>> {
     Ok(svc.server_dir(&id).map_err(s)?.1.worlds())
 }
+#[tauri::command]
+async fn server_backup_world(svc: State<'_, Service>, id: String, world_name: String) -> Res<String> {
+    let svc = svc.inner().clone();
+    blocking(move || {
+        let (_, sd) = svc.server_dir(&id).map_err(s)?;
+        let backups_dir = sd.dir.join("backups");
+        let dst = sd.backup_world(&world_name, &backups_dir).map_err(s)?;
+        Ok(dst.to_string_lossy().to_string())
+    })
+    .await?
+}
 
 // ---------- releases ----------
 #[tauri::command]
@@ -273,10 +285,45 @@ async fn install_server_jar(svc: State<'_, Service>, id: String) -> Res<u64> {
     blocking(move || svc.install_server_jar(&id).map_err(s)).await?
 }
 
+// ---------- delta-sync de mods y analizador Fabric ----------
+#[tauri::command]
+async fn modpack_delta_plan(svc: State<'_, Service>, id: String, manifest_json: String) -> Res<DeltaSyncPlan> {
+    let svc = svc.inner().clone();
+    blocking(move || {
+        let p = svc.store.get(&id).map_err(s)?;
+        let m = ServerModManifest::from_json(&manifest_json).map_err(s)?;
+        let mods_dir = instances::data_dir(&svc.layout, &p).join("mods");
+        modsync::compute_delta_sync(&mods_dir, &m).map_err(s)
+    })
+    .await?
+}
+
+#[tauri::command]
+async fn modpack_delta_apply(svc: State<'_, Service>, id: String, manifest_json: String) -> Res<DeltaSyncResult> {
+    let svc = svc.inner().clone();
+    blocking(move || {
+        let p = svc.store.get(&id).map_err(s)?;
+        let m = ServerModManifest::from_json(&manifest_json).map_err(s)?;
+        let mods_dir = instances::data_dir(&svc.layout, &p).join("mods");
+        modsync::apply_delta_sync(&mods_dir, &m).map_err(s)
+    })
+    .await?
+}
+
+#[tauri::command]
+fn analyze_fabric_conflicts(manifest_json: String) -> Res<ConflictReport> {
+    let m = ServerModManifest::from_json(&manifest_json).map_err(s)?;
+    Ok(modsync::analyze_mod_conflicts(&m.mods))
+}
+
 // ---------- online ----------
 #[tauri::command]
 async fn ping_server(address: String) -> Res<u128> {
     blocking(move || ping::tcp_ping(&address, Duration::from_secs(4)).map_err(s)).await?
+}
+#[tauri::command]
+async fn ping_mc_status(address: String) -> Res<McStatus> {
+    blocking(move || ping::mc_status_ping(&address, Duration::from_secs(4)).map_err(s)).await?
 }
 
 #[tauri::command]
@@ -320,7 +367,9 @@ pub fn run() {
             list_logs, read_log, clear_logs, server_start, server_stop, server_kill, server_command,
             proc_status, console_history, console_clear, server_plan, server_status, server_accept_eula,
             server_properties, server_set_properties, server_plugins, server_toggle_plugin, server_worlds,
-            manifest_import, manifest_summary, resolve_release, install_server_jar, ping_server, diagnostics
+            server_backup_world, manifest_import, manifest_summary, resolve_release, install_server_jar,
+            modpack_delta_plan, modpack_delta_apply, analyze_fabric_conflicts,
+            ping_server, ping_mc_status, diagnostics
         ])
         .run(tauri::generate_context!())
         .expect("error al ejecutar DrakeStar");
