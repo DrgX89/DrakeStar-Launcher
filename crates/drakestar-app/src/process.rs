@@ -413,3 +413,45 @@ mod tests {
         assert_eq!(pm.status("m").state, ProcState::Stopped);
     }
 }
+
+#[cfg(all(test, windows))]
+mod windows_tests {
+    use super::*;
+    use std::time::Instant;
+
+    #[derive(Default)]
+    struct Collect(Mutex<Vec<ProcEvent>>);
+    impl EventSink for Collect {
+        fn emit(&self, ev: ProcEvent) {
+            self.0.lock().unwrap().push(ev);
+        }
+    }
+
+    fn plan(script: &str, cwd: &Path) -> LaunchPlan {
+        LaunchPlan {
+            program: "cmd".into(),
+            args: vec!["/C".into(), script.into()],
+            cwd: cwd.to_string_lossy().into(),
+        }
+    }
+
+    fn wait_until(f: impl Fn() -> bool) {
+        let t = Instant::now();
+        while !f() {
+            assert!(t.elapsed() < Duration::from_secs(10), "timeout esperando condicion");
+            thread::sleep(Duration::from_millis(20));
+        }
+    }
+
+    #[test]
+    fn windows_streams_stdout_and_detects_exit() {
+        let d = crate::testutil::tmpdir("wproc1");
+        let sink = Arc::new(Collect::default());
+        let pm = ProcessManager::new(sink);
+        let st = pm.start("wp", &plan("echo hola_win & exit /b 0", &d.join("srv")), &d.join("logs")).unwrap();
+        wait_until(|| pm.status("wp").state == ProcState::Stopped);
+        let h = pm.history("wp");
+        assert!(h.iter().any(|l| l.stream == Stream::Stdout && l.line.trim() == "hola_win"));
+        assert!(Path::new(&st.log_file.unwrap()).is_file());
+    }
+}

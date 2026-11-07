@@ -204,6 +204,66 @@ impl ServerDir {
             worlds: self.worlds().len(),
         }
     }
+
+    /// Crea una copia de seguridad completa de un mundo (`level.dat`) dentro de `dest_dir/<world>-backup-<ts>`.
+    pub fn backup_world(&self, world_name: &str, dest_dir: &Path) -> AppResult<PathBuf> {
+        if !safe_file_name(world_name) {
+            return Err(AppError::Invalid("nombre de mundo invalido".into()));
+        }
+        let src = self.dir.join(world_name);
+        if !src.join("level.dat").is_file() {
+            return Err(AppError::NotFound(format!("mundo '{world_name}' (sin level.dat)")));
+        }
+        std::fs::create_dir_all(dest_dir)?;
+        let dst = dest_dir.join(format!("{world_name}-backup-{}", crate::now_ms()));
+        copy_dir_recursive(&src, &dst)?;
+        Ok(dst)
+    }
+
+    /// Instala un preset de ecosistema Slimefun (JAR principal + suites/addons opcionales) en `plugins/`.
+    pub fn install_slimefun_preset(&self, slimefun_jar: &Path, extra_plugins: &[PathBuf]) -> AppResult<Vec<String>> {
+        if !slimefun_jar.is_file() {
+            return Err(AppError::NotFound(format!("Slimefun JAR '{}'", slimefun_jar.display())));
+        }
+        self.ensure()?;
+        let pdir = self.plugins_dir();
+        let mut installed = Vec::new();
+        std::fs::copy(slimefun_jar, pdir.join("Slimefun.jar"))?;
+        installed.push("Slimefun.jar".to_string());
+        for extra in extra_plugins {
+            if !extra.is_file() {
+                return Err(AppError::NotFound(format!("plugin extra '{}'", extra.display())));
+            }
+            let fname = extra
+                .file_name()
+                .and_then(|n| n.to_str())
+                .ok_or_else(|| AppError::Invalid("nombre de archivo de plugin invalido".into()))?;
+            if !safe_file_name(fname) || !fname.to_lowercase().ends_with(".jar") {
+                return Err(AppError::Invalid(format!("nombre de plugin invalido: '{fname}'")));
+            }
+            std::fs::copy(extra, pdir.join(fname))?;
+            installed.push(fname.to_string());
+        }
+        Ok(installed)
+    }
+}
+
+fn copy_dir_recursive(src: &Path, dst: &Path) -> AppResult<()> {
+    std::fs::create_dir_all(dst)?;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let ft = entry.file_type()?;
+        if ft.is_symlink() {
+            continue;
+        }
+        let to = dst.join(entry.file_name());
+        if ft.is_dir() {
+            copy_dir_recursive(&entry.path(), &to)?;
+        } else {
+            std::fs::copy(entry.path(), to)?;
+        }
+    }
+    Ok(())
 }
 
 pub fn parse_properties(s: &str) -> Vec<Prop> {
@@ -362,5 +422,28 @@ mod tests {
         assert_eq!(w[0].size, 5);
         let st = s.status();
         assert!(st.exists && st.worlds == 1 && st.eula.is_none());
+    }
+
+    #[test]
+    fn world_backup_and_slimefun_preset_install() {
+        let root = crate::testutil::tmpdir("preset_backup");
+        let s = ServerDir::new(root.join("srv"));
+        s.ensure().unwrap();
+        std::fs::create_dir_all(s.dir.join("world/region")).unwrap();
+        std::fs::write(s.dir.join("world/level.dat"), b"nbt-root").unwrap();
+        std::fs::write(s.dir.join("world/region/r.0.0.mca"), b"chunk-0-0").unwrap();
+
+        let bdir = s.backup_world("world", &root.join("backups")).unwrap();
+        assert!(bdir.join("level.dat").is_file());
+        assert!(bdir.join("region/r.0.0.mca").is_file());
+        assert!(s.backup_world("../world", &root.join("backups")).is_err());
+
+        let sf_src = root.join("Slimefun-Universal.jar");
+        let suite_src = root.join("DrakesCore.jar");
+        std::fs::write(&sf_src, b"sf-bytes").unwrap();
+        std::fs::write(&suite_src, b"suite-bytes").unwrap();
+        let installed = s.install_slimefun_preset(&sf_src, &[suite_src]).unwrap();
+        assert_eq!(installed, vec!["Slimefun.jar", "DrakesCore.jar"]);
+        assert_eq!(s.plugins().len(), 2);
     }
 }
