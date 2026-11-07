@@ -171,7 +171,10 @@ mod tests {
         let port = l.local_addr().unwrap().port();
         assert!(tcp_ping(&format!("127.0.0.1:{port}"), Duration::from_secs(2)).is_ok());
         drop(l);
-        assert!(tcp_ping(&format!("127.0.0.1:{port}"), Duration::from_millis(500)).is_err());
+        // El puerto efimero recien soltado puede reasignarse en los runners de
+        // CI (y el test falla de forma intermitente): el puerto 1 nadie lo
+        // escucha sin root, asi que el error es determinista.
+        assert!(tcp_ping("127.0.0.1:1", Duration::from_millis(500)).is_err());
         assert!(tcp_ping("http://x", Duration::from_millis(100)).is_err());
         assert!(tcp_ping("", Duration::from_millis(100)).is_err());
     }
