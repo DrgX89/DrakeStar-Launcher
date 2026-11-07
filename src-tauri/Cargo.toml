@@ -1,0 +1,24 @@
+[package]
+name = "drakestar-app-tauri"
+description = "Shell Tauri 2 de DrakeStar: expone drakestar-app como comandos IPC. Sin logica propia."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "drakestar_tauri_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "drakestar-launcher"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde.workspace = true
+serde_json.workspace = true
+drakestar-core = { path = "../crates/drakestar-core" }
+drakestar-app = { path = "../crates/drakestar-app" }

@@ -5,7 +5,7 @@ members = [
   "crates/drakestar-cli",
   "crates/drakestar-net",
   "crates/drakestar-app",
-  
+  "src-tauri",
 ]
 
 [workspace.package]
