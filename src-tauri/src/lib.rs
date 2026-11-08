@@ -406,7 +406,7 @@ async fn diagnostics(svc: State<'_, Service>) -> Res<String> {
                 "id": p.id, "mode": p.mode, "channel": p.channel, "minecraft": p.minecraft })).collect::<Vec<_>>(),
             "invalid_profiles": list.invalid,
             "manifest_releases": release::load_manifest(&svc.layout).map(|m| m.releases.len()),
-            "launch_implemented": [Mode::LocalServer],
+            "launch_implemented": [Mode::LocalServer, Mode::DrakesRust],
         });
         serde_json::to_string_pretty(&v).unwrap_or_default()
     })

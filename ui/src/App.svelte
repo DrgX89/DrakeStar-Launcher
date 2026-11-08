@@ -54,9 +54,14 @@
 
 <a class="skip" href="#main">Saltar al contenido</a>
 <div class="root">
-  {#if app.info?.backend === 'mock'}
-    <div class="mockbar" role="note"><strong>MODO NAVEGADOR (MOCK)</strong> — el backend está simulado en memoria: no hay disco, procesos ni red reales. En la app Tauri esto es el backend Rust real.</div>
-  {/if}
+    <div class="cyber-header-bar" role="status">
+    <span class="live-dot"></span>
+    <span class="title">DRAKESTAR DECK v0.4.0</span>
+    <span class="divider">::</span>
+    <span class="target">ONLINE SMP · mc.drakescraft.cl:25565 (T2)</span>
+    <span class="divider">::</span>
+    <span class="kernel">PURPUR 26.2 × RUST FFM ENGINE</span>
+  </div>
   <header class="topbar">
     <a class="brand" href="#/" aria-label="DrakeStar, inicio"><img src={brand.logo} alt="DrakeStar" /></a>
     <div role="group" aria-label="Selector de modo" class="tabs">

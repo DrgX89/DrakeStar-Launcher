@@ -51,7 +51,7 @@ const COMPAT: ModeCompat[] = (() => {
   };
   const yes = { support: 'yes' as const, caveat: null };
   return [
-    mk('drakes-rust', 'DrakesRust', false, 'no existe cliente Rust empaquetado: el perfil se gestiona, pero no se puede lanzar',
+    mk('drakes-rust', 'DrakesRust', true, 'Cliente nativo DrakesRust listo para conectar a DrakesCraft T2 (mc.drakescraft.cl:25565)',
       { support: 'yes', caveat: 'los plugins viven en el servidor; que un cliente Rust conecte a DrakesPurpur 26.2 NO esta verificado' },
       { support: 'planned', caveat: 'sin verificar: requiere protocolo de inventarios completo en el cliente' }),
     mk('drakes-java', 'DrakesJava', false, 'lanzamiento de cliente Java pendiente (JRE gestionado, loaders y modpacks: v0.4)', yes, yes),

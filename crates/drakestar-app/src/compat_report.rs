@@ -76,7 +76,7 @@ pub fn mode_compat(mode: Mode) -> ModeCompat {
     };
     let (launch_implemented, launch_note) = match mode {
         Mode::LocalServer => (true, "arranca el JAR con el plan de drakestar-core (requiere Java y un JAR en la carpeta del servidor)"),
-        Mode::DrakesRust => (false, "no existe cliente Rust empaquetado: el perfil se gestiona, pero no se puede lanzar"),
+        Mode::DrakesRust => (true, "lanza el cliente nativo DrakesRust conectado a mc.drakescraft.cl:25565"),
         Mode::DrakesJava => (false, "lanzamiento de cliente Java pendiente (JRE gestionado, loaders y modpacks: v0.4)"),
         Mode::Online => (false, "lanzar el cliente depende de DrakesJava/DrakesRust; aqui solo hay perfiles y ping TCP"),
     };
@@ -108,7 +108,7 @@ mod tests {
         assert_eq!(m.slimefun_gui.support, Support::Planned);
         assert!(m.slimefun_gui.caveat.as_deref().unwrap().contains("sin verificar"));
         assert!(m.server_plugins.caveat.is_some());
-        assert!(!m.launch_implemented);
+        assert!(m.launch_implemented);
     }
     #[test]
     fn java_allows_loaders_as_planned_only() {
@@ -130,8 +130,8 @@ mod tests {
         }
     }
     #[test]
-    fn only_local_forge_launch_is_implemented() {
+    fn local_forge_and_drakes_rust_launch_are_implemented() {
         let n = report().iter().filter(|m| m.launch_implemented).count();
-        assert_eq!(n, 1);
+        assert_eq!(n, 2);
     }
 }

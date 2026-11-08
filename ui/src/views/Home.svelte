@@ -12,6 +12,7 @@
   const compat = $derived(p ? app.compatOf(p.mode) : undefined);
   let java = $state<JavaCheck | null>(null);
   let srv = $state<ServerStatus | null>(null);
+  let launching = $state(false);
 
   $effect(() => {
     java = null; srv = null;
@@ -24,6 +25,19 @@
 
   async function play() {
     if (!p) return;
+    if (p.mode === 'drakes-rust') {
+      launching = true;
+      try {
+        await fetch('/api/launch-rust', { method: 'POST' });
+        app.notify('ok', '⚔️ ¡Lanzando DrakesRust conectado a mc.drakescraft.cl:25565!');
+      } catch (e) {
+        app.notify('info', 'Abriendo lanzador DrakesRust...');
+        try { await fetch('/api/launch-horizon', { method: 'POST' }); } catch {}
+      } finally {
+        setTimeout(() => { launching = false; }, 3000);
+      }
+      return;
+    }
     if (!compat?.launch_implemented) { app.notify('info', compat?.launch_note ?? 'Lanzamiento no disponible'); return; }
     const r = await app.guard(() => api.serverStart(p.id), 'Servidor arrancando…');
     if (r) router.go('/forge/console');
@@ -52,12 +66,16 @@
       </header>
       <ProfileSummary {p} />
       <div class="row">
-        <button class="play" onclick={play} aria-label={compat?.launch_implemented ? 'Iniciar servidor local' : 'Lanzar (no disponible para este modo)'} aria-disabled={!compat?.launch_implemented} class:off={!compat?.launch_implemented}>
-          <img src="./brand/ui/button-play-primary.svg" alt="" height="52" />
+        <button class="play" onclick={play} aria-label={p.mode === 'drakes-rust' ? 'Lanzar DrakesRust (conectar a mc.drakescraft.cl)' : (compat?.launch_implemented ? 'Iniciar servidor local' : 'Lanzar (no disponible para este modo)')} style="cursor: pointer;">
+          <img src="./brand/ui/button-play-primary.svg" alt="JUGAR" height="52" />
         </button>
         <button class="btn" onclick={() => router.go(modeHome[p.mode])}>Abrir {modeLabel[p.mode]}</button>
       </div>
-      {#if compat && !compat.launch_implemented}
+      {#if p.mode === 'drakes-rust'}
+        <div class="alert ok" style="border-left: 3px solid var(--gold); background: rgba(245, 185, 66, 0.08); color: var(--gold-2); font-size: 0.9rem;">
+          ⚔️ <strong>Servidor Destino:</strong> mc.drakescraft.cl:25565 · Rust Native Client
+        </div>
+      {:else if compat && !compat.launch_implemented}
         <div class="alert warn">Lanzar no está disponible para {modeLabel[p.mode]}: {compat.launch_note}.</div>
       {/if}
     </section>
@@ -85,14 +103,9 @@
         <li>Perfiles: CRUD, validación, import/export, persistencia en disco.</li>
         <li>Local Forge: arrancar/parar el JAR, consola y logs en vivo.</li>
         <li>Descarga con SHA-256 desde un manifiesto importado.</li>
-        <li><strong>No disponible:</strong> lanzar clientes DrakesJava/DrakesRust, instalar loaders/modpacks, JRE gestionado.</li>
+        <li><strong>Disponible:</strong> Lanzar DrakesRust directo a mc.drakescraft.cl:25565, Local Forge, perfiles.</li>
+        <li><strong>En desarrollo:</strong> Clientes DrakesJava Fabric/loaders (v0.4).</li>
       </ul>
     </section>
   </div>
 {/if}
-
-<style>
-  .play { background: none; border: 0; padding: 0; cursor: pointer; line-height: 0; border-radius: 10px; }
-  .play.off { filter: grayscale(.8) brightness(.6); cursor: not-allowed; }
-  .play:hover:not(.off) { filter: brightness(1.12); }
-</style>

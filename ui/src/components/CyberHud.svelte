@@ -20,7 +20,7 @@
       status: 'ok',
     },
     {
-      label: 'HORIZON PREFETCH',
+      label: 'DRAKESTAR LOD PIPELINE',
       value: 'Active (3.5s Lead · 6s TTL)',
       status: 'active',
     },
