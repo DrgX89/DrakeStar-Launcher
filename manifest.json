@@ -12,26 +12,16 @@
         {
           "component": "drakespurpur",
           "platform": "any",
-          "url": "https://github.com/SlimefunNewHorizons/DrakesPurpur/releases/download/v26.2.140-stable/server.jar",
+          "url": "https://github.com/SlimefunNewHorizons/DrakesPurpur/releases/download/v26.2.140-stable/purpur-paperclip-26.2.build.140-stable.jar",
           "sha256": "750811c856cb0e36a9b117598d7d57834b53779f5d17d84ca04f47e747f00145",
           "size": 97296375
-        }
-      ]
-    },
-    {
-      "version": "0.3.0",
-      "channel": "unstable",
-      "minecraft": [
-        "26.2"
-      ],
-      "notes": "DrakeStar-Launcher v0.3.0-alpha · Delta Modpack Sync & Pre-Launch Fabric/Mixin Conflict Analyzer",
-      "artifacts": [
+        },
         {
-          "component": "launcher",
-          "platform": "windows-x86_64",
-          "url": "https://github.com/SlimefunNewHorizons/DrakeStar-Launcher/releases/tag/v0.3.0-alpha",
-          "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-          "size": 0
+          "component": "drakes-hybrid-ffi",
+          "platform": "linux-x86_64",
+          "url": "https://github.com/SlimefunNewHorizons/DrakesPurpur/releases/download/v26.2.140-stable/libdrakes_hybrid_ffi.so",
+          "sha256": "427e2b032663b165254e572d5bbfe42bd1f5df040a639a4cec56f0caf7239487",
+          "size": 427728
         }
       ]
     },
@@ -48,8 +38,8 @@
           "component": "drakes-rust-client",
           "platform": "windows-x86_64",
           "url": "https://github.com/horizon-rust/horizon/releases/download/nightly/horizon-windows-x64.zip",
-          "sha256": "0e3157a74c56249573f42624d64bc87774324dec1cd20ba6518c784b7293eda0",
-          "size": 40474460
+          "sha256": "b4a21d8004689844281b88509beb101467c492ec563e070a0de3e8b95311998e",
+          "size": 43728779
         }
       ]
     }

@@ -1,91 +1,74 @@
-<div align="center">
+<p align="center"><img src="assets/brand/banner.svg" alt="DrakeStar — Java × Rust Launcher" width="100%"></p>
 
-# ⚡ DrakeStar-Launcher — Drake Edition
-
-**High-Performance Paper 1.21.11 Expansion for Slimefun4**
-
-<p>
-  <a href="https://github.com/SlimefunNewHorizons/DrakeStar-Launcher"><img src="https://img.shields.io/badge/GitHub-DrakeStar-Launcher-181717?style=for-the-badge&logo=github" alt="GitHub"/></a>
-  <img src="https://img.shields.io/badge/Slimefun4-Drake_Edition-22C55E?style=for-the-badge&logo=curseforge&logoColor=white" alt="Slimefun4"/>
-  <img src="https://img.shields.io/badge/Paper-1.21.11-38BDF8?style=for-the-badge&logo=minecraft&logoColor=white" alt="Paper 1.21.11"/>
-  <img src="https://img.shields.io/badge/Java-21-F89820?style=for-the-badge&logo=openjdk&logoColor=white" alt="Java 21"/>
+<p align="center">
+  <img src="assets/brand/ui/status-experimental.svg" alt="experimental" height="26">
+  <img src="assets/brand/ui/status-channel-nightly.svg" alt="nightly channel" height="26">
+  <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/license-MIT-8B3DFF"></a>
 </p>
 
-[🇬🇧 **English**](README.md) · [🇪🇸 **Español**](README_ES.md)
+# DrakeStar — the Java × Rust hybrid launcher of the Drakes ecosystem
 
-</div>
+[🇬🇧 English](README.md) · [🇪🇸 Español](README_ES.md)
 
-> ### 🏰 Join the Official DrakesCraft Community!
-> 
-> * 🎮 **Server IP**: `mc.drakescraft.cl` *(Java 1.21.11 & Bedrock Port 25565 / 19132)*
-> * 💬 **Official Discord**: [discord.gg/drakescraft](https://discord.gg/rv3vtXZTk7) — *Check out `#general-english`!*
-> * 🌐 **Website & Guides**: [web.drakescraft.cl](https://web.drakescraft.cl) — 🛒 **Store**: [web.drakescraft.cl/store](https://web.drakescraft.cl/store.html)
-> 
-> *Play with this addon alongside 80+ optimized expansions live on our technical survival network!*
+**DrakeStar** (Drakes + JackStar) is the sister launcher of the [DrakesPurpur Hybrid Engine](https://github.com/SlimefunNewHorizons/DrakesPurpur): one product to **play, test and manage** the whole Drakes/Slimefun ecosystem — Rust client, Java client, local server and online server — with its own visual identity. The hybrid Java × Rust DrakesPurpur engine already runs in production on the DrakesCraft server (Dallas).
 
----
+> **Status: v0.4.0-alpha.** Profiles persisted to disk, validation with `drakestar-core`, import/export, mode picker that respects the compatibility matrix, instance management, server-driven delta modpack sync with SHA-256 verification (`modsync.rs`), a pre-launch Fabric/Mixin conflict analyzer, a mod loader with native adapter and hook engine, and a C-ABI intermediary so native (Rust) mods run next to Java ones. Local Forge (local DrakesPurpur server) is implemented; DrakesJava and DrakesRust launching are still pending.
 
-## 📖 What is DrakeStar-Launcher?
+## Modes
 
-**DrakeStar-Launcher** is a modular expansion within the **DrakesCraft Labs** ecosystem, specifically engineered and optimized for Minecraft **Paper / Purpur 1.21.11** servers running Java 21 LTS.
+| Mode | What it does | Status |
+|---|---|---|
+| **DrakesRust** | Launches a Rust client (Horizon-like). Own profiles, LOD / high performance. **Does not load Java mods.** | profiles/channel/resolution only; no client yet, cannot launch |
+| **DrakesJava** | Vanilla/Fabric/Forge/NeoForge Java profiles, modpacks, JVM and memory, import/export. | profiles and validation; launch pending |
+| **Local Forge** | Starts a local DrakesPurpur with a Slimefun preset; logs, console, plugins, worlds. | implemented: start/stop, console, logs, EULA, properties, plugins, Slimefun preset, worlds and backups |
+| **Online** | DrakesCraft connection profiles, quick links, server status. | profiles + TCP ping and Server List Ping `0x00` (MOTD, version, players); connecting needs a client (pending) |
 
-All items, machines, and recipes are integrated seamlessly into the **Slimefun Guide (`/sf guide`)** without requiring external client mods.
+## Real compatibility
 
----
+Single source of truth: [`compat.rs`](crates/drakestar-core/src/compat.rs) (the UI and the CLI read it; `drakestar compat`).
 
-## ⚙️ Key Features & Systems
+| | Fabric/Forge/NeoForge mods | Server plugins (Slimefun…) | Slimefun GUIs/items |
+|---|---|---|---|
+| **DrakesJava** client | planned (not implemented) | yes (server side) | yes, with a vanilla client |
+| **DrakesRust** client | **never** (different runtime) | yes, at server level | **unverified** (needs a full inventory protocol in the client) |
 
-* 🚀 **Optimized Performance**: Full Java 21 LTS runtime optimization on Paper 1.21.11 with zero Garbage Collector stutter and zero external telemetry.
-* 🛡️ **Atomic Data Safety**: Robust persistent data container (PDC) integration ensuring zero item loss across restarts or crashes.
-* ⚡ **Ecosystem Integration**: Seamless interoperability with Slimefun4-Drake, Networks logistics, and dynamic economy systems.
-* 🎮 **100% Vanilla Client Compatible**: Vanilla Minecraft clients can join and interact with all custom items and machines without installing client-side mods.
+A `drakes-rust` profile with a loader or modpack is rejected (covered by a test). Horizon (MIT) speaks protocol 26.3 and DrakesPurpur 26.2; until it is tested with a real client, nothing claims that a Horizon/Rust client connects to DrakesPurpur 26.2.
 
----
+## Channels
 
-## 📋 Technical Compatibility
+`stable` (default, verified releases only) · `unstable` (integration branch builds) · `nightly` (experimental, may break). Each profile declares a channel; a `stable` profile never resolves a `nightly` release (tested). See [docs/RELEASES.md](docs/RELEASES.md).
 
-| Parameter | Requirement |
-|---|---|
-| **Server Software** | Paper / Purpur / Folia **1.21.11** |
-| **Java Runtime** | **Java 21** LTS |
-| **Required Core** | [Slimefun4-Drake](https://github.com/SlimefunNewHorizons/Slimefun4-Drake) |
-| **Architecture** | 100% Server-Side (Vanilla Minecraft clients can join without installing client mods) |
+## Relationship with DrakesPurpur Hybrid
 
----
+Local Forge runs the DrakesPurpur JAR (Java 25; the hybrid engine extracts its native Rust library from the JAR itself). The launcher does not duplicate engine logic: it downloads it by channel (SHA-256), configures it with a preset and supervises it. Measured engine results live in the DrakesPurpur repository.
 
-## 📥 Installation
+## Manifest
 
-1. Download the latest release `.jar` from the [Releases](https://github.com/SlimefunNewHorizons/DrakeStar-Launcher/releases) tab or [Modrinth](https://modrinth.com/organization/drakescraft-labs).
-2. Place the `.jar` into your server's `plugins/` directory alongside `Slimefun4-Drake.jar`.
-3. Start or restart your server. Recipes and machines will appear automatically in the Slimefun guide (`/sf guide`).
+`manifest.json` lists releases with URL, size and SHA-256. `python3 tools/verify_manifest.py` downloads every artifact and compares them; `--fix` rewrites the real values (the `nightly` channel changes with every build, so verify before publishing).
 
----
+## Run
 
-## 🛠️ Building from Source
+Requirements: stable Rust, Node 22+, Java 25 for a DrakesPurpur 26.x server, and on Linux the Tauri 2 dependencies (`libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev pkg-config`).
 
 ```bash
-git clone https://github.com/SlimefunNewHorizons/DrakeStar-Launcher.git
-cd DrakeStar-Launcher
-mvn clean package -DskipTests
+# Desktop app (dev)
+(cd ui && npm install) && ui/node_modules/.bin/tauri dev
+
+# UI only in the browser, MOCK backend (flagged on screen)
+cd ui && npm install && npm run dev
+
+# Verification
+cargo test --workspace          # core 48 + net 7 verified; app/tauri need GTK/WebKit
+cargo run -p drakestar-cli -- profile-check examples/profile-local-dev.json
+cargo run -p drakestar-cli -- manifest-check manifest.json
 ```
 
-The compiled artifact will be located under `target/DrakeStar-Launcher.jar`.
+App data: `<app data dir>/profiles/<id>/{profile.json,server/,instance/,logs/}`, `settings.json`, `manifest.json`, `exports/`. Override with `DRAKESTAR_DATA_DIR`. No installers yet (`bundle.active=false`).
 
----
+## Layout
 
-<div align="center">
+`crates/drakestar-core` (model, channels, manifest, compat) · `crates/drakestar-net` (https download + streaming SHA-256) · `crates/drakestar-app` (profiles, processes, local server, backups, instances, releases, ping, modsync; no Tauri dependency) · `src-tauri` (Tauri 2 glue) · `ui/` (Svelte 5 + TypeScript + Vite) · `crates/drakestar-rust-client`, `drakestar-native-example`, `drakestar-cli`.
 
-**Developed and Maintained by [DrakesCraft Labs](https://github.com/SlimefunNewHorizons)**  
-Licensed under **MIT**.
+## Credits and license
 
-</div>
-
----
-
-## 📄 License & Upstream Attribution
-
-This project is a sovereign fork maintained by [**JackStar6677-1**](https://github.com/JackStar6677-1) under [**DrakesCraft Labs**](https://github.com/SlimefunNewHorizons).
-
-- **Original Project:** Created by the upstream authors and the open-source community ([Upstream Repository](https://github.com/Slimefun)).
-- **DrakesCraft Optimizations:** Modernized for Paper/Purpur 1.21.11+, Java 21 LTS, high concurrency, asynchronous safety, and exploit/duplication prevention.
-- **License:** Distributed under the original **MIT** license terms. See the [LICENSE](LICENSE) file for complete details.
+MIT. Conceptually inspired by [Horizon](https://github.com/horizon-rust/horizon) (MIT); this repo copies neither its code nor its brand. Docs: [ARCHITECTURE](docs/ARCHITECTURE.md) · [PROFILES](docs/PROFILES.md) · [RELEASES](docs/RELEASES.md) · [BRANDING](docs/BRANDING.md) · [ROADMAP](docs/ROADMAP.md).

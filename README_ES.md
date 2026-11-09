@@ -1,8 +1,5 @@
 <p align="center"><img src="assets/brand/banner.svg" alt="DrakeStar — Java × Rust Launcher" width="100%"></p>
 
-[🇬🇧 **English**](README.md) · [🇪🇸 **Español**](README_ES.md)
-
-
 <p align="center">
   <img src="assets/brand/ui/status-experimental.svg" alt="experimental" height="26">
   <img src="assets/brand/ui/status-channel-nightly.svg" alt="canal nightly" height="26">
@@ -67,7 +64,7 @@ Cada **perfil declara un canal**; un perfil `stable` jamás resuelve una release
 
 ## Relación con DrakesPurpur Hybrid
 
-Local Forge ejecuta el JAR de DrakesPurpur (Java 25; el motor híbrido extrae su biblioteca nativa Rust del propio JAR). El launcher no duplica lógica del motor: lo descarga por canal (SHA-256), lo configura con un preset y lo supervisa. Los resultados medidos del motor están en el repo de DrakesPurpur, no aquí.
+Local Forge ejecuta el JAR de DrakesPurpur (Java 25; el motor híbrido extrae su biblioteca nativa Rust del propio JAR). Ese motor híbrido Java × Rust ya corre en producción en el servidor DrakesCraft (Dallas). El launcher no duplica lógica del motor: lo descarga por canal (SHA-256), lo configura con un preset y lo supervisa. Los resultados medidos del motor están en el repo de DrakesPurpur, no aquí.
 
 ## Ejecutar
 
@@ -82,7 +79,7 @@ cd ui && npm install && npm run dev            # http://localhost:5173
 
 # Verificación
 cd ui && npm run build                          # svelte-check (TypeScript) + vite build
-cargo test --workspace                          # 13 core + 6 net + 34 app (53 tests passing)
+cargo test --workspace                          # core 48 + net 7 verificados; app/tauri requieren GTK/WebKit
 cargo run -p drakestar-cli -- profile-check examples/profile-local-dev.json
 cargo run -p drakestar-cli -- compat
 ```
@@ -93,8 +90,8 @@ Datos de la app: `<app data dir>/profiles/<id>/{profile.json,server/,instance/,l
 
 | Crate / carpeta | Rol | Tests |
 |---|---|---|
-| `crates/drakestar-core` | modelo, canales, manifiesto, plan, **compat** (fuente de verdad) | 13 |
-| `crates/drakestar-net` | descarga https + SHA-256 en streaming, `.part` → rename solo si coincide | 6 |
+| `crates/drakestar-core` | modelo, canales, manifiesto, plan, **compat** (fuente de verdad) | 48 |
+| `crates/drakestar-net` | descarga https + SHA-256 en streaming, `.part` → rename solo si coincide | 7 |
 | `crates/drakestar-app` | almacén de perfiles, gestor de procesos (Unix + Windows), servidor local, backups, preset Slimefun, instancias, releases, ping TCP + SLP `0x00`, delta modpack sync (`modsync.rs`) y analizador de conflictos Mixin/Fabric en Rust, Java. **Sin dependencia de Tauri** | 34 |
 | `src-tauri` | glue Tauri 2: comandos IPC + eventos `proc-event` | compila (`cargo check`) |
 | `ui/` | Svelte 5 + TypeScript + Vite; SVG de `assets/brand` copiados por `npm run sync-brand` | `svelte-check` |
@@ -102,6 +99,10 @@ Datos de la app: `<app data dir>/profiles/<id>/{profile.json,server/,instance/,l
 ## Marca
 
 Cyberpunk dorado · morado · rojo. Todo vectorial y regenerable (`python3 tools/gen_brand.py`): logo, isotipo, banner, splash, 14 iconos, pastillas de estado/canal, botones, tabs y mockup. Guía: [docs/BRANDING.md](docs/BRANDING.md).
+
+## Manifiesto
+
+`manifest.json` lista las releases con URL, tamaño y SHA-256. `python3 tools/verify_manifest.py` descarga cada artefacto y compara; con `--fix` reescribe los valores reales (el canal `nightly` cambia con cada build, así que hay que verificarlo antes de publicar).
 
 ## Documentación
 
