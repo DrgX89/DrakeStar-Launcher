@@ -43,6 +43,12 @@
       "desc": "logs en vivo y entrada de comandos"
     },
     {
+      "path": "/forge/console-detached",
+      "title": "Consola Blackwall Externa",
+      "mode": "local-server",
+      "desc": "consola flotante independiente en ventana externa con telemetria"
+    },
+    {
       "path": "/forge/plugins",
       "title": "Plugins",
       "mode": "local-server",

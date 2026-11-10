@@ -24,13 +24,13 @@
 
   const views: Record<string, Component<any>> = {
     '/': Home, '/profiles': Profiles, '/instances': Instances, '/rust': Rust, '/java': Java, '/java/modpacks': Modpacks,
-    '/forge': Forge, '/forge/console': Console, '/forge/plugins': Plugins, '/forge/worlds': Worlds,
+    '/forge': Forge, '/forge/console': Console, '/forge/console-detached': Console, '/forge/plugins': Plugins, '/forge/worlds': Worlds,
     '/online': Online, '/settings/updates': Updates, '/settings/about': About,
   };
   const icons: Record<string, string> = {
     '/': brand.isotype, '/profiles': brand.icon('profile'), '/instances': brand.icon('world'), '/settings/updates': brand.icon('update'),
-    '/settings/about': brand.icon('settings'), '/forge/console': brand.icon('console'), '/forge/plugins': brand.icon('plugin'),
-    '/forge/worlds': brand.icon('world'), '/java/modpacks': brand.icon('modpack'),
+    '/settings/about': brand.icon('settings'), '/forge/console': brand.icon('console'), '/forge/console-detached': brand.icon('console'),
+    '/forge/plugins': brand.icon('plugin'), '/forge/worlds': brand.icon('world'), '/java/modpacks': brand.icon('modpack'),
   };
   const modes: Mode[] = ['drakes-rust', 'drakes-java', 'local-server', 'online'];
 
@@ -54,62 +54,68 @@
 
 <a class="skip" href="#main">Saltar al contenido</a>
 <div class="root">
-    <div class="cyber-header-bar" role="status">
-    <span class="live-dot"></span>
-    <span class="title">DRAKESTAR DECK v0.4.0</span>
-    <span class="divider">::</span>
-    <span class="target">ONLINE SMP · mc.drakescraft.cl:25565 (T2)</span>
-    <span class="divider">::</span>
-    <span class="kernel">PURPUR 26.2 × RUST FFM ENGINE</span>
-  </div>
-  <header class="topbar">
-    <a class="brand" href="#/" aria-label="DrakeStar, inicio"><img src={brand.logo} alt="DrakeStar" /></a>
-    <div role="group" aria-label="Selector de modo" class="tabs">
-      {#each modes as m (m)}
-        <button onclick={() => pickMode(m)} aria-pressed={active?.mode === m} aria-label={modeLabel[m]}><img src={brand.tab(m, active?.mode === m)} alt={modeLabel[m]} /></button>
-      {/each}
+  {#if router.path === '/forge/console-detached'}
+    <div class="detached-console-wrapper" style="min-height:100vh;background:#05070a;padding:1.5rem;box-sizing:border-box;overflow-y:auto">
+      <Console p={active as Profile} detached={true} />
     </div>
-  </header>
-  <div class="body">
-    <aside class="sidebar">
-      <div class="field" style="margin:0">
-        <label for="active-profile">Perfil activo</label>
-        <select id="active-profile" value={app.settings.active_profile ?? ''} onchange={onSelect}>
-          {#if !app.profiles.length}<option value="">(sin perfiles)</option>{/if}
-          {#each app.profiles as p (p.id)}<option value={p.id}>{p.name} · {p.channel}</option>{/each}
-        </select>
+  {:else}
+    <div class="cyber-header-bar" role="status">
+      <span class="live-dot"></span>
+      <span class="title">DRAKESTAR DECK v0.4.0</span>
+      <span class="divider">::</span>
+      <span class="target">ONLINE SMP · mc.drakescraft.cl:25565 (T2)</span>
+      <span class="divider">::</span>
+      <span class="kernel">PURPUR 26.2 × RUST FFM ENGINE</span>
+    </div>
+    <header class="topbar">
+      <a class="brand" href="#/" aria-label="DrakeStar, inicio"><img src={brand.logo} alt="DrakeStar" /></a>
+      <div role="group" aria-label="Selector de modo" class="tabs">
+        {#each modes as m (m)}
+          <button onclick={() => pickMode(m)} aria-pressed={active?.mode === m} aria-label={modeLabel[m]}><img src={brand.tab(m, active?.mode === m)} alt={modeLabel[m]} /></button>
+        {/each}
       </div>
-      <nav aria-label="Navegación principal">
-        <h3>General</h3>
-        {#each general as r (r.path)}
-          <a class="navlink" href={`#${r.path}`} aria-current={router.path === r.path ? 'page' : undefined}><img src={icons[r.path] ?? brand.isotype} alt="" />{r.title}</a>
-        {/each}
-        {#if active}
-          <h3>{modeLabel[active.mode]}</h3>
-          {#each modeRoutes as r (r.path)}
-            <a class="navlink" class:sub={r.path.split('/').length > 2} href={`#${r.path}`} aria-current={router.path === r.path ? 'page' : undefined}><img src={icons[r.path] ?? brand.modeIcon(active.mode)} alt="" />{r.title}</a>
+    </header>
+    <div class="body">
+      <aside class="sidebar">
+        <div class="field" style="margin:0">
+          <label for="active-profile">Perfil activo</label>
+          <select id="active-profile" value={app.settings.active_profile ?? ''} onchange={onSelect}>
+            {#if !app.profiles.length}<option value="">(sin perfiles)</option>{/if}
+            {#each app.profiles as p (p.id)}<option value={p.id}>{p.name} · {p.channel}</option>{/each}
+          </select>
+        </div>
+        <nav aria-label="Navegación principal">
+          <h3>General</h3>
+          {#each general as r (r.path)}
+            <a class="navlink" href={`#${r.path}`} aria-current={router.path === r.path ? 'page' : undefined}><img src={icons[r.path] ?? brand.isotype} alt="" />{r.title}</a>
           {/each}
+          {#if active}
+            <h3>{modeLabel[active.mode]}</h3>
+            {#each modeRoutes as r (r.path)}
+              <a class="navlink" class:sub={r.path.split('/').length > 2} href={`#${r.path}`} aria-current={router.path === r.path ? 'page' : undefined}><img src={icons[r.path] ?? brand.modeIcon(active.mode)} alt="" />{r.title}</a>
+            {/each}
+          {/if}
+          <h3>Ajustes</h3>
+          {#each settingsRoutes as r (r.path)}
+            <a class="navlink" href={`#${r.path}`} aria-current={router.path === r.path ? 'page' : undefined}><img src={icons[r.path] ?? brand.icon('settings')} alt="" />{r.title}</a>
+          {/each}
+        </nav>
+      </aside>
+      <main id="main" tabindex="-1">
+        {#if fatal}
+          <div class="alert err" role="alert">No se pudo iniciar la interfaz: {fatal}</div>
+        {:else if !app.ready}
+          <p class="muted" role="status">Cargando…</p>
+        {:else if gated && def.mode}
+          <Gate mode={def.mode} />
+        {:else}
+          {#key def.path + (active?.id ?? '')}
+            <View p={active as Profile} />
+          {/key}
         {/if}
-        <h3>Ajustes</h3>
-        {#each settingsRoutes as r (r.path)}
-          <a class="navlink" href={`#${r.path}`} aria-current={router.path === r.path ? 'page' : undefined}><img src={icons[r.path] ?? brand.icon('settings')} alt="" />{r.title}</a>
-        {/each}
-      </nav>
-    </aside>
-    <main id="main" tabindex="-1">
-      {#if fatal}
-        <div class="alert err" role="alert">No se pudo iniciar la interfaz: {fatal}</div>
-      {:else if !app.ready}
-        <p class="muted" role="status">Cargando…</p>
-      {:else if gated && def.mode}
-        <Gate mode={def.mode} />
-      {:else}
-        {#key def.path + (active?.id ?? '')}
-          <View p={active as Profile} />
-        {/key}
-      {/if}
-    </main>
-  </div>
+      </main>
+    </div>
+  {/if}
   {#if app.toast}
     <div class="toast {app.toast.kind}" role={app.toast.kind === 'err' ? 'alert' : 'status'}>{app.toast.text}</div>
   {/if}
