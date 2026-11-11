@@ -62,7 +62,7 @@
   {:else}
     <div class="cyber-header-bar" role="status">
       <span class="live-dot"></span>
-      <span class="title">DRAKESTAR DECK v0.4.0</span>
+      <span class="title">DRAKESTAR DECK v{app.info?.version ?? '—'}</span>
       <span class="divider">::</span>
       <span class="target">ONLINE SMP · mc.drakescraft.cl:25565 (T2)</span>
       <span class="divider">::</span>
