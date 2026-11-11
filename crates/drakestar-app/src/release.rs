@@ -178,4 +178,57 @@ mod tests {
         assert!(!l.server_dir("s").join(DEFAULT_JAR).exists());
         assert!(install_server_jar(&l, &sample("j", Mode::DrakesJava), Some(&m)).is_err());
     }
+
+    /// El manifest que se commitea en el repo tiene que ser utilizable: los tres
+    /// artefactos (servidor, híbrido y cliente) con SHA bien formado, y el
+    /// cliente resolviendo para linux-x86_64 desde un perfil nightly.
+    #[test]
+    fn committed_manifest_resolves_real_artifacts() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../manifest.json");
+        let text = std::fs::read_to_string(path).expect("manifest.json en la raíz del repo");
+        let m = Manifest::from_json(&text).expect("manifest.json parseable");
+        assert_eq!(m.schema, 1);
+
+        // todos los artefactos con hash válido (si no, no se instalan)
+        for r in &m.releases {
+            for a in &r.artifacts {
+                assert!(
+                    sha256_wellformed(&a.sha256),
+                    "{}: SHA mal formado ('{}')",
+                    a.component,
+                    a.sha256
+                );
+                assert!(a.size > 0, "{}: size 0 (placeholder)", a.component);
+            }
+        }
+
+        // el cliente resuelve en Linux desde un perfil nightly (válido solo en Linux;
+        // en Windows no hay binario publicado todavía y resolve debe decir por qué)
+        let mut p = sample("rust", Mode::DrakesRust);
+        p.channel = Channel::Nightly;
+        p.minecraft = "26.2".into();
+        let res = resolve(Some(&m), &p);
+        let rel = res
+            .resolved
+            .unwrap_or_else(|| panic!("el cliente debería resolver: {}", res.reason.unwrap_or_default()));
+        assert_eq!(rel.version, "0.1");
+        assert!(
+            rel.url.starts_with("https://"),
+            "el binario tiene que venir por https: {}",
+            rel.url
+        );
+        // no debe seguir apuntando al ZIP de Horizon: eso no lo puede ejecutar
+        assert!(
+            !rel.url.contains("horizon"),
+            "el manifest sigue apuntando a Horizon: {}",
+            rel.url
+        );
+
+        // un perfil stable NO resuelve un nightly (regla de canales, no un bug)
+        let mut stable = p.clone();
+        stable.channel = Channel::Stable;
+        let r2 = resolve(Some(&m), &stable);
+        assert!(r2.resolved.is_none(), "un perfil stable no debe resolver un nightly");
+        assert!(r2.reason.is_some(), "y tiene que explicar por qué");
+    }
 }
