@@ -426,11 +426,29 @@ pub fn classpath(l: &Layout, p: &Profile) -> AppResult<String> {
     Ok(planned.iter().map(|a| a.dest.to_string_lossy().to_string()).collect::<Vec<_>>().join(sep))
 }
 
+/// Resuelve el directorio de assets con prioridad a cachés existentes (Prism/Vanilla)
+/// para evitar descargas innecesarias y permitir audio inmediato desde el primer inicio.
+pub fn resolve_assets_dir(inst: &Path) -> PathBuf {
+    if let Ok(home) = std::env::var("HOME") {
+        let home_path = PathBuf::from(home);
+        let prism_assets = home_path.join(".local/share/PrismLauncher/assets");
+        if prism_assets.join("objects").is_dir() {
+            return prism_assets;
+        }
+        let vanilla_assets = home_path.join(".minecraft/assets");
+        if vanilla_assets.join("objects").is_dir() {
+            return vanilla_assets;
+        }
+    }
+    inst.join("assets")
+}
+
 /// Plan de lanzamiento del cliente (sin ejecutar).
 pub fn plan(l: &Layout, p: &Profile, java_bin: &str, username: &str) -> AppResult<fabric::ClientPlan> {
     let (version, cache) = cached(l, &p.id).ok_or_else(|| AppError::NotFound("cliente no instalado".into()))?;
     let inst = instance_dir(l, &p.id);
     let cp = classpath(l, p)?;
+    let assets_dir = resolve_assets_dir(&inst);
     fabric::client_plan(
         p,
         &version,
@@ -439,7 +457,7 @@ pub fn plan(l: &Layout, p: &Profile, java_bin: &str, username: &str) -> AppResul
             username,
             classpath: &cp,
             game_dir: &inst.to_string_lossy(),
-            assets_dir: &inst.join("assets").to_string_lossy(),
+            assets_dir: &assets_dir.to_string_lossy(),
             natives_dir: &inst.join("natives").to_string_lossy(),
             version_label: &format!("fabric-loader-{}-{}", cache.entry.loader.version, p.minecraft),
             launcher_name: "DrakeStar",
