@@ -166,5 +166,25 @@
         <li><strong>En desarrollo:</strong> Clientes DrakesJava Fabric/loaders (v0.4).</li>
       </ul>
     </section>
+
+    <!-- Discord Community Card -->
+    <section class="card stack" style="border: 1px solid rgba(88, 101, 242, 0.4); background: linear-gradient(135deg, rgba(18, 20, 38, 0.9), rgba(12, 14, 28, 0.95)); box-shadow: 0 4px 18px rgba(88, 101, 242, 0.12);">
+      <header>
+        <img src={brand.icon('discord')} alt="Discord" width="30" height="30" />
+        <div class="t">
+          <h2 style="margin:0; color:#9fa8ff; font-size:1.05rem;">COMUNIDAD DRAKESGRAFT</h2>
+          <span class="muted" style="font-size:0.75rem;">Soporte, anuncios, guías e integración SRE</span>
+        </div>
+      </header>
+      <p style="font-size:0.85rem; color:#8b949e; margin:0.25rem 0; line-height:1.4;">
+        Únete a nuestro Discord oficial soberano. Accede a canales bilingües, avisos de mantenimiento, changelogs en vivo y asistencia directa de SAORI.
+      </p>
+      <div class="row">
+        <a class="btn primary" href={brand.discordUrl} target="_blank" rel="noopener noreferrer" style="background: linear-gradient(135deg, #5865f2, #4752c4); color:#fff; border:none; font-weight:bold; text-decoration:none; display:inline-flex; align-items:center; gap:0.5rem;">
+          <img src={brand.icon('discord')} alt="" width="18" height="18" />
+          UNIRSE A DISCORD
+        </a>
+      </div>
+    </section>
   </div>
 {/if}

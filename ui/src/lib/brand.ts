@@ -10,7 +10,8 @@ export const brand = {
   tab: (m: Mode, active: boolean) => `${B}/ui/tab-${{ 'drakes-rust': 'rust', 'drakes-java': 'java', 'local-server': 'server', online: 'online' }[m]}-${active ? 'active' : 'idle'}.svg`,
   statePill: (s: ProcState) => ({ running: `${B}/ui/status-online.svg`, stopped: `${B}/ui/status-offline.svg`, crashed: `${B}/ui/status-error.svg`, stopping: null })[s],
   experimental: `${B}/ui/status-experimental.svg`,
-  icon: (n: 'console' | 'play' | 'plugin' | 'profile' | 'settings' | 'slimefun' | 'stop' | 'update' | 'world' | 'modpack') => `${B}/icons/${n}.svg`,
+  icon: (n: 'console' | 'play' | 'plugin' | 'profile' | 'settings' | 'slimefun' | 'stop' | 'update' | 'world' | 'modpack' | 'discord') => `${B}/icons/${n}.svg`,
+  discordUrl: 'https://discord.gg/rv3vtXZTk7',
 };
 export const modeLabel: Record<Mode, string> = { 'drakes-rust': 'DrakesRust', 'drakes-java': 'DrakesJava', 'local-server': 'Local Forge', online: 'Online' };
 export const modeHome: Record<Mode, string> = { 'drakes-rust': '/rust', 'drakes-java': '/java', 'local-server': '/forge', online: '/online' };

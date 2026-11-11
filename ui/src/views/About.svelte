@@ -49,6 +49,17 @@
     <p class="muted">Minecraft es una marca de Mojang/Microsoft. DrakeStar no incluye ni redistribuye el juego.</p>
   </section>
 
+  <section class="card stack" aria-labelledby="a-comm">
+    <h2 id="a-comm">Comunidad y Soporte</h2>
+    <p>Servidor oficial DrakesCraft Season 2, soporte técnico de la suite y asistencia de SAORI.</p>
+    <div class="row">
+      <a class="btn primary" href={brand.discordUrl} target="_blank" rel="noopener noreferrer" style="text-decoration:none; display:inline-flex; align-items:center; gap:0.5rem;">
+        <img src={brand.icon('discord')} alt="" width="16" height="16" />
+        Discord Canónico ({brand.discordUrl})
+      </a>
+    </div>
+  </section>
+
   <section class="card stack" style="grid-column:1/-1" aria-labelledby="a-diag">
     <h2 id="a-diag">Diagnóstico exportable</h2>
     <p class="muted">JSON con versión, plataforma, Java (incluye la ruta del ejecutable), directorio de datos y resumen de perfiles. Cópialo manualmente para un reporte.</p>

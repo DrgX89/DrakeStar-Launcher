@@ -99,6 +99,11 @@
           {#each settingsRoutes as r (r.path)}
             <a class="navlink" href={`#${r.path}`} aria-current={router.path === r.path ? 'page' : undefined}><img src={icons[r.path] ?? brand.icon('settings')} alt="" />{r.title}</a>
           {/each}
+          <h3>Comunidad</h3>
+          <a class="navlink" href={brand.discordUrl} target="_blank" rel="noopener noreferrer" title="Unirse al Discord oficial de DrakesCraft">
+            <img src={brand.icon('discord')} alt="Discord" />
+            Discord Oficial
+          </a>
         </nav>
       </aside>
       <main id="main" tabindex="-1">
