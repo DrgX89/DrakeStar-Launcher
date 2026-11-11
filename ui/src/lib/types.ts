@@ -133,11 +133,13 @@ export interface ConflictReport {
 
 export interface McStatus {
   latency_ms: number;
-  version_name: string;
-  protocol: number;
-  players_online: number;
-  players_max: number;
-  motd: string;
+  version_name: string | null;
+  protocol: number | null;
+  players_online: number | null;
+  players_max: number | null;
+  description: string | null;
+  favicon?: string | null;
+  raw_json?: string | null;
 }
 
 /** Estado del cliente Rust nativo (`drakestar_app::rustclient`). */

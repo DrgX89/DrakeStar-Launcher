@@ -12,6 +12,8 @@ pub struct ServerStatusPing {
     pub players_online: Option<i64>,
     pub players_max: Option<i64>,
     pub description: Option<String>,
+    pub favicon: Option<String>,
+    pub raw_json: Option<String>,
 }
 
 fn resolve_target(addr: &str) -> AppResult<(String, u16, SocketAddr)> {
@@ -104,6 +106,8 @@ pub fn mc_status_ping(addr: &str, timeout: Duration) -> AppResult<ServerStatusPi
             players_online: None,
             players_max: None,
             description: None,
+            favicon: None,
+            raw_json: None,
         });
     }
 
@@ -115,6 +119,8 @@ pub fn mc_status_ping(addr: &str, timeout: Duration) -> AppResult<ServerStatusPi
             players_online: None,
             players_max: None,
             description: None,
+            favicon: None,
+            raw_json: None,
         });
     };
     let Ok(pkt_id) = read_varint(&mut stream) else {
@@ -125,6 +131,8 @@ pub fn mc_status_ping(addr: &str, timeout: Duration) -> AppResult<ServerStatusPi
             players_online: None,
             players_max: None,
             description: None,
+            favicon: None,
+            raw_json: None,
         });
     };
     if pkt_id != 0x00 {
@@ -138,6 +146,7 @@ pub fn mc_status_ping(addr: &str, timeout: Duration) -> AppResult<ServerStatusPi
     stream
         .read_exact(&mut json_buf)
         .map_err(|e| AppError::Net(format!("lectura JSON SLP: {e}")))?;
+    let raw_json_str = String::from_utf8_lossy(&json_buf).to_string();
     let v: serde_json::Value = serde_json::from_slice(&json_buf)
         .map_err(|e| AppError::Net(format!("JSON SLP invalido: {e}")))?;
 
@@ -145,9 +154,28 @@ pub fn mc_status_ping(addr: &str, timeout: Duration) -> AppResult<ServerStatusPi
     let protocol = v.pointer("/version/protocol").and_then(|x| x.as_i64()).map(|x| x as i32);
     let players_online = v.pointer("/players/online").and_then(|x| x.as_i64());
     let players_max = v.pointer("/players/max").and_then(|x| x.as_i64());
+    let favicon = v.get("favicon").and_then(|x| x.as_str()).map(String::from);
     let description = match v.get("description") {
         Some(serde_json::Value::String(s)) => Some(s.clone()),
-        Some(obj) => obj.get("text").and_then(|x| x.as_str()).map(String::from),
+        Some(obj) => {
+            if let Some(t) = obj.get("text").and_then(|x| x.as_str()) {
+                if !t.is_empty() {
+                    Some(t.to_string())
+                } else if let Some(extra) = obj.get("extra").and_then(|x| x.as_array()) {
+                    let mut full = String::new();
+                    for it in extra {
+                        if let Some(txt) = it.get("text").and_then(|x| x.as_str()) {
+                            full.push_str(txt);
+                        }
+                    }
+                    Some(full)
+                } else {
+                    Some(t.to_string())
+                }
+            } else {
+                None
+            }
+        }
         None => None,
     };
 
@@ -158,6 +186,8 @@ pub fn mc_status_ping(addr: &str, timeout: Duration) -> AppResult<ServerStatusPi
         players_online,
         players_max,
         description,
+        favicon,
+        raw_json: Some(raw_json_str),
     })
 }
 

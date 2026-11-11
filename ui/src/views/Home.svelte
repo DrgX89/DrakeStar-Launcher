@@ -6,6 +6,7 @@
   import ProfileSummary from '../components/ProfileSummary.svelte';
   import StatePill from '../components/StatePill.svelte';
   import CyberHud from '../components/CyberHud.svelte';
+  import DallasCard from '../components/DallasCard.svelte';
   import type { JavaCheck, ServerStatus, Profile } from '../lib/types';
 
   const p = $derived(app.active);
@@ -23,7 +24,7 @@
     }
   });
 
-  async function play() {
+  async function playActive() {
     if (!p) return;
     if (p.mode === 'drakes-rust') {
       launching = true;
@@ -97,109 +98,159 @@
 </script>
 
 <div class="row between">
-  <h1>Inicio</h1>
+  <h1>Centro de Mando DrakeStar</h1>
 </div>
 
 <CyberHud />
 
-{#if !p}
-  <div class="card stack">
-    <img src={brand.banner} alt="DrakeStar — Java × Rust Launcher" style="width:100%;max-width:640px" />
-    <p>No hay perfil activo. Crea uno para empezar o genera un servidor local al vuelo.</p>
-    <div class="row">
-      <button class="btn primary" onclick={() => router.go('/profiles')}>Ir a Perfiles</button>
-      <button class="btn" onclick={quickLaunchLan} style="border-color:var(--cyber-cyan);color:#00f0ff">⚡ Crear Instancia Purpur + Slimefun LAN</button>
-    </div>
-  </div>
-{:else}
-  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr))">
-    <section class="card stack" aria-labelledby="h-active">
-      <header>
-        <img class="mi" src={brand.modeIcon(p.mode)} alt="" />
-        <div class="t"><h2 id="h-active" style="margin:0">{p.name}</h2><span class="muted mono">{p.id}</span></div>
-        {#if p.mode === 'local-server'}<StatePill state={app.statusOf(p.id).state} />{/if}
-      </header>
-      <ProfileSummary {p} />
-      <div class="row">
-        <button class="play" onclick={play} aria-label={p.mode === 'drakes-rust' ? 'Lanzar DrakesRust (conectar a mc.drakescraft.cl)' : (compat?.launch_implemented ? 'Iniciar servidor local' : 'Lanzar (no disponible para este modo)')} style="cursor: pointer;">
-          <img src="./brand/ui/button-play-primary.svg" alt="JUGAR" height="52" />
-        </button>
-        <button class="btn" onclick={() => router.go(modeHome[p.mode])}>Abrir {modeLabel[p.mode]}</button>
+<div class="home-layout-stack">
+  <!-- 1. HERO VIEW PRINCIPAL: SLIMEFUN EN SOLITARIO / LAN (Llegar y Jugar) -->
+  <section class="card stack hero-slimefun">
+    <header class="hero-header">
+      <div class="hero-icon-container">
+        <span class="hero-glow-icon">⚡</span>
       </div>
-      {#if p.mode === 'drakes-rust'}
-        <div class="alert ok" style="border-left: 3px solid var(--gold); background: rgba(245, 185, 66, 0.08); color: var(--gold-2); font-size: 0.9rem;">
-          ⚔️ <strong>Servidor Destino:</strong> mc.drakescraft.cl:25565 · Rust Native Client
+      <div class="t">
+        <div class="row items-center gap-sm">
+          <h2 class="hero-title">MODALIDAD SLIMEFUN SOLITARIO / LAN</h2>
+          <span class="badge hero-badge">⭐ HERO · LLEGAR Y JUGAR</span>
         </div>
-      {:else if compat && !compat.launch_implemented}
-        <div class="alert warn">Lanzar no está disponible para {modeLabel[p.mode]}: {compat.launch_note}.</div>
-      {/if}
-    </section>
+        <span class="hero-subtitle">
+          Motor DrakesPurpur 26.2 × StarSuites (20,000+ Items Slimefun v11) en una sola instancia interna
+        </span>
+      </div>
+    </header>
 
-    <!-- LAN Quick Instance Card (DrakesPurpur + StarSuites Slimefun) -->
-    <section class="card stack" style="border: 1px solid rgba(0, 240, 255, 0.35); background: linear-gradient(135deg, rgba(8, 16, 26, 0.8), rgba(4, 8, 14, 0.9)); box-shadow: 0 4px 16px rgba(0, 240, 255, 0.08);">
-      <header>
-        <span style="font-size: 1.5rem; text-shadow: 0 0 8px #00f0ff;">⚡</span>
-        <div class="t">
-          <h2 style="margin:0; color: #00f0ff; font-size: 1.05rem; font-family: monospace;">INSTANCIA SLIMEFUN LOCAL (SOLITARIO / LAN)</h2>
-          <span class="muted" style="font-size:0.75rem;">DrakesPurpur 26.2 × StarSuites · Slimefun v11 sin configurar nada</span>
-        </div>
-      </header>
-      <p style="font-size:0.85rem; color:#8b949e; margin:0.25rem 0; line-height: 1.4;">
-        Genera y arranca al vuelo una instancia local con motor <strong>DrakesPurpur 26.2</strong> y el ecosistema completo de <strong>StarSuites & Slimefun v11</strong>. Conexión directa en solitario o para jugar con amigos en tu red local (Java o Bedrock).
+    <div class="hero-body">
+      <p class="hero-description">
+        Juega toda la experiencia técnica, mágica y nuclear de Slimefun directamente en tu máquina sin configurar nada. 
+        Compatible con conexión local individual (Solitario) o apertura LAN para jugar con tus amigos por WiFi o Tailscale.
       </p>
-      
-      <div class="instruction-box" style="background: rgba(0, 0, 0, 0.4); border: 1px dashed rgba(0, 240, 255, 0.25); border-radius: 8px; padding: 0.75rem; font-size: 0.8rem; color: #c9d1d9;">
-        <strong style="color: #00f0ff;">📖 Instrucciones de Juego:</strong>
-        <ol style="margin: 0.35rem 0 0.5rem 1.2rem; padding: 0; line-height: 1.5;">
-          <li>Haz clic en <strong>▶ INICIAR SERVIDOR LOCAL + CONSOLA</strong>. El launcher descargará y verificará automáticamente el JAR oficial (SHA-256) si no está instalado.</li>
-          <li>Aceptará el EULA automáticamente y abrirá la terminal Blackwall con telemetría de TPS y memoria.</li>
-          <li>En tu cliente de Minecraft (Java 26.2 o 1.21.x), conéctate a <code>localhost:25565</code> o <code>127.0.0.1:25565</code>.</li>
-          <li>¡Listo para jugar! Usa <code>/sf guide</code> in-game para acceder al libro y tecnologías de Slimefun.</li>
+
+      <div class="instruction-box">
+        <div class="instruction-header">
+          <span class="book-icon">📖</span>
+          <strong>INSTRUCCIONES DE ACCESO RÁPIDO:</strong>
+        </div>
+        <ol class="instructions-list">
+          <li>
+            Pulsa <strong>▶ INICIAR SLIMEFUN LOCAL</strong>. El launcher instala y valida automáticamente <code>drakespurpur.jar</code> (SHA-256) con las suites oficiales.
+          </li>
+          <li>
+            Se desplegará la <strong>Consola Blackwall</strong> para monitorear TPS, memoria, advertencias y bucles del servidor integrado en tiempo real.
+          </li>
+          <li>
+            En tu Minecraft (Java 26.2 / 1.21.x o cliente con shaders Iris/Sodium), únete a <code>localhost:25565</code> o <code>127.0.0.1:25565</code>.
+          </li>
+          <li>
+            ¡Listo para jugar! Usa <code>/sf guide</code> in-game para acceder a las 20,000+ recetas tecnológicas.
+          </li>
         </ol>
       </div>
 
-      <div class="row" style="margin-top: 0.25rem;">
-        <button class="btn primary" onclick={quickLaunchLan} style="background: linear-gradient(135deg, #00f0ff, #0077b6); border:none; font-weight:bold; color:#05070a; letter-spacing:0.04em;">
-          ▶ INICIAR SERVIDOR LOCAL + CONSOLA
+      <div class="ecosystem-links-box">
+        <span class="muted small-text">📦 ECOSISTEMA OPEN SOURCE:</span>
+        <div class="row wrap gap-sm">
+          <a class="tag-link" href="https://github.com/SlimefunNewHorizons" target="_blank" rel="noopener noreferrer">
+            🏛 GitHub @SlimefunNewHorizons
+          </a>
+          <a class="tag-link" href="https://github.com/SlimefunNewHorizons/Drakes-Suites" target="_blank" rel="noopener noreferrer">
+            ⚙️ Repositorio StarSuites Monorepo
+          </a>
+          <a class="tag-link" href="https://github.com/SlimefunNewHorizons/DrakeStar-Launcher" target="_blank" rel="noopener noreferrer">
+            🚀 DrakeStar Launcher Repo
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <footer class="hero-footer row between wrap">
+      <div class="row">
+        <button class="btn primary hero-play-btn" onclick={quickLaunchLan}>
+          ▶ INICIAR SLIMEFUN LOCAL + CONSOLA
         </button>
-        <button class="btn" onclick={() => router.go('/forge/plugins')} style="font-size:0.8rem;">
-          📦 Ver Plugins / Suites
+        <button class="btn" onclick={() => router.go('/forge/plugins')}>
+          📁 Abrir Carpeta de Plugins / Suites
         </button>
+        <button class="btn" onclick={() => router.go('/forge/console')}>
+          🖥️ Consola Flotante
+        </button>
+      </div>
+
+      <div class="row">
+        <span class="status-indicator-inline">
+          <span class="dot-live"></span>
+          FFM ABI 1 + SIMD Off-Heap Ready
+        </span>
+      </div>
+    </footer>
+  </section>
+
+  <!-- 2. SERVIDOR REMOTO DALLAS (SMP TEMPORADA 2) -->
+  <DallasCard />
+
+  <!-- 3. PERFIL ACTIVO Y EXPERIMENTAL / MODS -->
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr))">
+    {#if p}
+      <section class="card stack" aria-labelledby="h-active">
+        <header>
+          <img class="mi" src={brand.modeIcon(p.mode)} alt="" />
+          <div class="t"><h2 id="h-active" style="margin:0">{p.name}</h2><span class="muted mono">{p.id}</span></div>
+          {#if p.mode === 'local-server'}<StatePill state={app.statusOf(p.id).state} />{/if}
+        </header>
+        <ProfileSummary {p} />
+        <div class="row">
+          <button class="play" onclick={playActive} aria-label={p.mode === 'drakes-rust' ? 'Lanzar DrakesRust' : (compat?.launch_implemented ? 'Iniciar servidor' : 'Lanzar')} style="cursor: pointer;">
+            <img src="./brand/ui/button-play-primary.svg" alt="JUGAR" height="52" />
+          </button>
+          <button class="btn" onclick={() => router.go(modeHome[p.mode])}>Abrir {modeLabel[p.mode]}</button>
+        </div>
+        {#if p.mode === 'drakes-rust'}
+          <div class="alert ok" style="border-left: 3px solid var(--gold); background: rgba(245, 185, 66, 0.08); color: var(--gold-2); font-size: 0.9rem;">
+            ⚔️ <strong>Servidor Destino:</strong> mc.drakescraft.cl:25565 · Rust Native Client
+          </div>
+        {:else if compat && !compat.launch_implemented}
+          <div class="alert warn">Lanzar no está disponible para {modeLabel[p.mode]}: {compat.launch_note}.</div>
+        {/if}
+      </section>
+
+      {#if p.mode === 'local-server'}
+        <section class="card stack" aria-labelledby="h-comp">
+          <h2 id="h-comp">Estado de componentes de {p.name}</h2>
+          <dl class="kv">
+            <dt>Java</dt>
+            <dd>{#if !java}comprobando…{:else if java.info.found}<span class="badge yes">{java.info.version}</span>{:else}<span class="badge no">no encontrado</span>{/if}</dd>
+            <dt>JAR del servidor</dt>
+            <dd>{#if !srv}…{:else if srv.jar.selected}<span class="badge yes">{srv.jar.selected}</span>{:else}<span class="badge no">falta</span>{/if}</dd>
+            <dt>EULA</dt>
+            <dd>{#if !srv}…{:else if srv.eula}<span class="badge yes">aceptada</span>{:else}<span class="badge planned">sin aceptar</span>{/if}</dd>
+            <dt>Plugins activos</dt><dd>{srv?.plugins ?? '…'}</dd>
+            <dt>Mundos</dt><dd>{srv?.worlds ?? '…'}</dd>
+          </dl>
+          {#if java?.warning}<div class="alert warn">{java.warning}</div>{/if}
+        </section>
+      {/if}
+    {/if}
+
+    <!-- Roadmap & Guía de Motores -->
+    <section class="card stack">
+      <h2>Arquitectura Multi-Motor DrakeStar</h2>
+      <ul class="muted" style="padding-left:1.1rem;margin:0; font-size: 0.85rem; line-height: 1.5;">
+        <li><strong>Slimefun Solitario / LAN:</strong> Purpur 26.2 + StarSuites 20k+ items sin lag.</li>
+        <li><strong>DrakesRust Native Client:</strong> Protocolo 767, conexión C/Rust directa sin JVM.</li>
+        <li><strong>Bridge Mod (DrakeStar Fused):</strong> Inyección de Bukkit en el IntegratedServer de Fabric/Forge para correr shaders + Slimefun en una sola instancia.</li>
+        <li><strong>Discord SRE & Soporte:</strong> Integración 24/7 con SAORI para soporte y reportes.</li>
+      </ul>
+      <div class="row" style="margin-top:0.4rem;">
+        <button class="btn small" onclick={() => router.go('/profiles')}>Gestionar Perfiles</button>
+        <button class="btn small" onclick={() => router.go('/settings')}>Ajustes del Launcher</button>
       </div>
     </section>
 
-    {#if p.mode === 'local-server'}
-      <section class="card stack" aria-labelledby="h-comp">
-        <h2 id="h-comp">Estado de componentes</h2>
-        <dl class="kv">
-          <dt>Java</dt>
-          <dd>{#if !java}comprobando…{:else if java.info.found}<span class="badge yes">{java.info.version}</span>{:else}<span class="badge no">no encontrado</span>{/if}</dd>
-          <dt>JAR del servidor</dt>
-          <dd>{#if !srv}…{:else if srv.jar.selected}<span class="badge yes">{srv.jar.selected}</span>{:else}<span class="badge no">falta</span>{/if}</dd>
-          <dt>EULA</dt>
-          <dd>{#if !srv}…{:else if srv.eula}<span class="badge yes">aceptada</span>{:else}<span class="badge planned">sin aceptar</span>{/if}</dd>
-          <dt>Plugins activos</dt><dd>{srv?.plugins ?? '…'}</dd>
-          <dt>Mundos</dt><dd>{srv?.worlds ?? '…'}</dd>
-        </dl>
-        {#if java?.warning}<div class="alert warn">{java.warning}</div>{/if}
-      </section>
-    {/if}
-
-    <section class="card stack" aria-labelledby="h-state">
-      <h2 id="h-state">Qué funciona hoy</h2>
-      <ul class="muted" style="padding-left:1.1rem;margin:0">
-        <li>Perfiles: CRUD, validación, import/export, persistencia en disco.</li>
-        <li>Local Forge: arrancar/parar el JAR, consola flotante desacoplable y logs en vivo.</li>
-        <li>Descarga con SHA-256 desde un manifiesto importado.</li>
-        <li><strong>Disponible:</strong> Lanzar DrakesRust directo a mc.drakescraft.cl:25565, Local Forge, perfiles.</li>
-        <li><strong>En desarrollo:</strong> Clientes DrakesJava Fabric/loaders (v0.4).</li>
-      </ul>
-    </section>
-
-    <!-- Discord Community Card -->
-    <section class="card stack" style="border: 1px solid rgba(88, 101, 242, 0.4); background: linear-gradient(135deg, rgba(18, 20, 38, 0.9), rgba(12, 14, 28, 0.95)); box-shadow: 0 4px 18px rgba(88, 101, 242, 0.12);">
+    <!-- Discord Card -->
+    <section class="card stack" style="border: 1px solid rgba(88, 101, 242, 0.4); background: linear-gradient(135deg, rgba(18, 20, 38, 0.9), rgba(12, 14, 28, 0.95));">
       <header>
-        <img src={brand.icon('discord')} alt="Discord" width="30" height="30" />
+        <img src={brand.icon('discord')} alt="Discord" width="28" height="28" />
         <div class="t">
           <h2 style="margin:0; color:#9fa8ff; font-size:1.05rem;">COMUNIDAD DRAKESGRAFT</h2>
           <span class="muted" style="font-size:0.75rem;">Soporte, anuncios, guías e integración SRE</span>
@@ -209,11 +260,182 @@
         Únete a nuestro Discord oficial soberano. Accede a canales bilingües, avisos de mantenimiento, changelogs en vivo y asistencia directa de SAORI.
       </p>
       <div class="row">
-        <a class="btn primary" href={brand.discordUrl} target="_blank" rel="noopener noreferrer" style="background: linear-gradient(135deg, #5865f2, #4752c4); color:#fff; border:none; font-weight:bold; text-decoration:none; display:inline-flex; align-items:center; gap:0.5rem;">
-          <img src={brand.icon('discord')} alt="" width="18" height="18" />
+        <a class="btn primary" href={brand.discordUrl} target="_blank" rel="noopener noreferrer" style="background: linear-gradient(135deg, #5865f2, #4752c4); color:#fff; border:none; font-weight:bold; text-decoration:none; display:inline-flex; align-items:center; gap:0.5rem; font-size:0.85rem;">
+          <img src={brand.icon('discord')} alt="" width="16" height="16" />
           UNIRSE A DISCORD
         </a>
       </div>
     </section>
   </div>
-{/if}
+</div>
+
+<style>
+  .home-layout-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .hero-slimefun {
+    border: 1px solid rgba(0, 240, 255, 0.45);
+    background: linear-gradient(135deg, rgba(6, 18, 30, 0.92) 0%, rgba(2, 8, 16, 0.96) 100%);
+    box-shadow: 0 4px 28px rgba(0, 240, 255, 0.12), inset 0 0 16px rgba(0, 240, 255, 0.04);
+  }
+
+  .hero-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .hero-icon-container {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    background: rgba(0, 240, 255, 0.1);
+    border: 1px solid rgba(0, 240, 255, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .hero-glow-icon {
+    font-size: 1.8rem;
+    text-shadow: 0 0 12px #00f0ff;
+  }
+
+  .hero-title {
+    margin: 0;
+    color: #00f0ff;
+    font-size: 1.2rem;
+    font-family: monospace;
+    letter-spacing: 0.04em;
+  }
+
+  .hero-badge {
+    background: rgba(0, 240, 255, 0.15);
+    color: #00f0ff;
+    border: 1px solid rgba(0, 240, 255, 0.3);
+    font-weight: bold;
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+  }
+
+  .hero-subtitle {
+    font-size: 0.82rem;
+    color: #94a3b8;
+    display: block;
+    margin-top: 0.15rem;
+  }
+
+  .hero-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .hero-description {
+    font-size: 0.9rem;
+    color: #cbd5e1;
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  .instruction-box {
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px dashed rgba(0, 240, 255, 0.3);
+    border-radius: 8px;
+    padding: 0.85rem;
+    font-size: 0.82rem;
+    color: #e2e8f0;
+  }
+
+  .instruction-header {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: #00f0ff;
+    font-size: 0.85rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .instructions-list {
+    margin: 0 0 0 1.25rem;
+    padding: 0;
+    line-height: 1.6;
+  }
+
+  .instructions-list code {
+    background: rgba(0, 240, 255, 0.12);
+    color: #38bdf8;
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+    font-family: monospace;
+  }
+
+  .ecosystem-links-box {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .small-text {
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+  }
+
+  .tag-link {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #94a3b8;
+    text-decoration: none;
+    font-size: 0.75rem;
+    padding: 0.3rem 0.6rem;
+    border-radius: 5px;
+    transition: all 0.2s ease;
+  }
+
+  .tag-link:hover {
+    background: rgba(0, 240, 255, 0.12);
+    border-color: rgba(0, 240, 255, 0.3);
+    color: #00f0ff;
+  }
+
+  .hero-footer {
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .hero-play-btn {
+    background: linear-gradient(135deg, #00f0ff 0%, #0284c7 100%);
+    border: none;
+    font-weight: bold;
+    color: #030712;
+    letter-spacing: 0.04em;
+    padding: 0.6rem 1.25rem;
+    box-shadow: 0 0 16px rgba(0, 240, 255, 0.35);
+  }
+
+  .status-indicator-inline {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: #38bdf8;
+    font-family: monospace;
+  }
+
+  .dot-live {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #00f0ff;
+    box-shadow: 0 0 8px #00f0ff;
+    animation: pulse-glow 2s infinite;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.85); }
+  }
+</style>

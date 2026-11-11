@@ -220,6 +220,16 @@ export async function mockInvoke(cmd: string, a: Record<string, any> = {}): Prom
     }
     case 'install_server_jar': throw '[MOCK] la descarga real solo existe en la app Tauri';
     case 'ping_server': return delay(a.address?.includes('drakescraft') ? 165 : 45);
+    case 'ping_mc_status': return delay({
+      latency_ms: 168,
+      version_name: 'Purpur 26.2',
+      protocol: 767,
+      players_online: 0,
+      players_max: 2027,
+      description: '🏛 LA GRAN POLIS 🏛 ▏ EDICIÓN 26.2\n✦ Claims • Torneos • Mazmorras y bosses',
+      favicon: null,
+      raw_json: '{"version":{"name":"Purpur 26.2","protocol":767},"players":{"max":2027,"online":0}}'
+    });
     case 'mods_report':
     case 'mods_decide': return delay({ discovered: 138, verified: 138, order: ['fabric-api', 'sodium', 'distanthorizons'], not_loaded: [], abi: [['fabric-api', 'Java (JVM)', '2.0'], ['sodium', 'Java (JVM)', '2.0']], classpath: [], warnings: [], bytes: 157_000_000, skipped: ['algo-forge.jar: no es Fabric'] });
     case 'rust_client_status': return { profile: a.id, binary: '(mock)/drakestar-rust-client', installed: rustClientInstalled, executable: rustClientInstalled, version: rustClientInstalled ? '0.1.0-mock' : null, ready: rustClientInstalled, reason: rustClientInstalled ? null : 'el cliente Rust no está instalado todavía' };
