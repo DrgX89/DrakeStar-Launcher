@@ -170,3 +170,18 @@ export interface LoadReport {
   /** jars que no eran mods de Fabric validos. */
   skipped: string[];
 }
+
+/** Estado del cliente Java gestionado (Fabric) (`drakestar_app::fabric`). */
+export interface ClientStatus {
+  profile: string;
+  minecraft: string;
+  java_required: number;
+  loader_version: string | null;
+  main_class: string | null;
+  resolved: boolean;
+  artifacts: number;
+  present: number;
+  bytes: number;
+  ready: boolean;
+  reason: string | null;
+}

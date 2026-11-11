@@ -268,6 +268,39 @@ export async function mockInvoke(cmd: string, a: Record<string, any> = {}): Prom
       line(a.id, 'stdin', a.line);
       return;
     }
+    case 'client_status':
+    case 'client_install':
+      return {
+        profile: a.id,
+        minecraft: '1.21.1',
+        java_required: 21,
+        loader_version: '0.16.5',
+        main_class: 'net.fabricmc.loader.impl.launch.knot.KnotClient',
+        resolved: true,
+        artifacts: 45,
+        present: 45,
+        bytes: 65000000,
+        ready: true,
+        reason: null,
+      };
+    case 'client_plan':
+      return 'java -Xms2048M -Xmx4096M net.fabricmc.loader.impl.launch.knot.KnotClient\n(cwd: (mock)/profiles/' + a.id + '/instance)';
+    case 'client_start': {
+      prof(a.id);
+      const id = a.id as string;
+      if (status[id] && ['running', 'stopping'].includes(status[id].state)) throw `'${id}' ya está en ejecución`;
+      hist[id] = hist[id] ?? [];
+      status[id] = { state: 'running', pid: 6161, started_at: Date.now(), exit_code: null, log_file: '(mock)' };
+      emit({ type: 'state', profile: id, state: 'running', code: null });
+      line(id, 'system', '--- [MOCK] Minecraft Java (Fabric Loader) iniciado ---');
+      return status[id];
+    }
+    case 'client_stop': {
+      const st = status[a.id]; if (!st || st.state !== 'running') throw `'${a.id}' no está en ejecución`;
+      setState(a.id, 'stopping');
+      window.setTimeout(() => { line(a.id, 'stdout', '[Minecraft] Client closed'); line(a.id, 'system', '--- [MOCK] proceso terminado (código 0) ---'); setState(a.id, 'stopped', 0); }, 500);
+      return;
+    }
     case 'diagnostics': return JSON.stringify({ app: 'DrakeStar', backend: 'mock', nota: 'diagnostico simulado, no del sistema real' }, null, 2);
     default: throw `comando desconocido en el mock: ${cmd}`;
   }

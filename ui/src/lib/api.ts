@@ -1,7 +1,7 @@
 // Capa de acceso al backend. En Tauri llama a los comandos reales (drakestar-app).
 // En un navegador normal (vite dev / capturas) usa un MOCK en memoria, claramente marcado
 // en la UI (AppInfo.backend === 'mock'): no ejecuta procesos ni toca el disco.
-import type { AppInfo, JavaCheck, ModeCompat, Profile, ProfileList, ProcEvent, ProcStatus, LineRec, Settings, InstanceRow, LogFile, ServerStatus, Prop, PluginInfo, WorldInfo, Resolution, DeltaSyncPlan, DeltaSyncResult, ConflictReport, McStatus, LoadReport, RustClientStatus } from './types';
+import type { AppInfo, JavaCheck, ModeCompat, Profile, ProfileList, ProcEvent, ProcStatus, LineRec, Settings, InstanceRow, LogFile, ServerStatus, Prop, PluginInfo, WorldInfo, Resolution, DeltaSyncPlan, DeltaSyncResult, ConflictReport, McStatus, LoadReport, RustClientStatus, ClientStatus } from './types';
 
 type Invoke = <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
 type Listen = (cb: (e: ProcEvent) => void) => Promise<() => void>;
@@ -92,4 +92,10 @@ export const api = {
   rustStart: (id: string) => call<ProcStatus>('rust_client_start', { id }),
   rustStop: (id: string) => call<void>('rust_client_stop', { id }),
   rustCommand: (id: string, line: string) => call<void>('rust_client_command', { id, line }),
+
+  clientStatus: (id: string) => call<ClientStatus>('client_status', { id }),
+  clientInstall: (id: string) => call<ClientStatus>('client_install', { id }),
+  clientPlan: (id: string) => call<string>('client_plan', { id }),
+  clientStart: (id: string) => call<ProcStatus>('client_start', { id }),
+  clientStop: (id: string) => call<void>('client_stop', { id }),
 };

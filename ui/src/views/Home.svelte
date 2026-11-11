@@ -26,9 +26,9 @@
 
   async function playActive() {
     if (!p) return;
-    if (p.mode === 'drakes-rust') {
-      launching = true;
-      try {
+    launching = true;
+    try {
+      if (p.mode === 'drakes-rust') {
         let st = await api.rustStatus(p.id).catch(() => null);
         if (!st || !st.ready) {
           app.notify('info', 'Instalando y verificando cliente nativo DrakesRust...');
@@ -36,16 +36,36 @@
         }
         await api.rustStart(p.id);
         app.notify('ok', `⚔️ ¡Cliente DrakesRust conectado a ${p.server || 'mc.drakescraft.cl:25565'}!`);
-      } catch (err: any) {
-        app.notify('err', `Error al iniciar DrakesRust: ${err?.message || err}`);
-      } finally {
-        setTimeout(() => { launching = false; }, 2000);
+        return;
       }
-      return;
+
+      if (p.mode === 'drakes-java') {
+        app.notify('info', `Comprobando y lanzando cliente Minecraft Java (${p.loader})...`);
+        let cst = await api.clientStatus(p.id).catch(() => null);
+        if (!cst || !cst.ready) {
+          app.notify('info', 'Descargando artefactos de Minecraft y Fabric Loader...');
+          await api.clientInstall(p.id);
+        }
+        await api.clientStart(p.id);
+        app.notify('ok', `🎮 ¡Proceso de Minecraft iniciado con éxito (${p.name})!`);
+        router.go('/instances');
+        return;
+      }
+
+      if (p.mode === 'local-server') {
+        const r = await app.guard(() => api.serverStart(p.id), 'Servidor arrancando…');
+        if (r) router.go('/forge/console');
+        return;
+      }
+
+      if (!compat?.launch_implemented) {
+        app.notify('info', compat?.launch_note ?? 'Lanzamiento no disponible');
+      }
+    } catch (err: any) {
+      app.notify('err', `Error al iniciar: ${err?.message || err}`);
+    } finally {
+      setTimeout(() => { launching = false; }, 2000);
     }
-    if (!compat?.launch_implemented) { app.notify('info', compat?.launch_note ?? 'Lanzamiento no disponible'); return; }
-    const r = await app.guard(() => api.serverStart(p.id), 'Servidor arrancando…');
-    if (r) router.go('/forge/console');
   }
 
   async function quickLaunchLan() {
@@ -95,6 +115,35 @@
       router.go('/forge');
     }
   }
+
+  async function launchMinecraftClient() {
+    // Buscar o crear perfil Fabric de cliente
+    let clientProf = app.profiles.find((pr) => pr.mode === 'drakes-java');
+    if (!clientProf) {
+      clientProf = {
+        schema: 1,
+        id: 'drakes-fabric-client',
+        name: 'Minecraft Fabric (DrakeStar Fused)',
+        mode: 'drakes-java',
+        channel: 'stable',
+        minecraft: '1.21.1',
+        loader: 'fabric',
+        java: {
+          major: 21,
+          min_mem_mb: 2048,
+          max_mem_mb: 4096,
+          extra_jvm_args: ['-XX:+UseG1GC'],
+        },
+        server: 'mc.drakescraft.cl:25565',
+        preset: null,
+        modpack: null,
+        notes: 'Cliente Minecraft con Fabric y shaders compatibles',
+      };
+      await app.guard(() => api.createProfile(clientProf!));
+    }
+    await app.setActive(clientProf.id);
+    await playActive();
+  }
 </script>
 
 <div class="row between">
@@ -140,7 +189,7 @@
             Se desplegará la <strong>Consola Blackwall</strong> para monitorear TPS, memoria, advertencias y bucles del servidor integrado en tiempo real.
           </li>
           <li>
-            En tu Minecraft (Java 26.2 / 1.21.x o cliente con shaders Iris/Sodium), únete a <code>localhost:25565</code> o <code>127.0.0.1:25565</code>.
+            En tu Minecraft (Java o Fabric con shaders Iris/Sodium), únete a <code>localhost:25565</code> o <code>127.0.0.1:25565</code>.
           </li>
           <li>
             ¡Listo para jugar! Usa <code>/sf guide</code> in-game para acceder a las 20,000+ recetas tecnológicas.
@@ -160,6 +209,9 @@
           <a class="tag-link" href="https://github.com/SlimefunNewHorizons/DrakeStar-Launcher" target="_blank" rel="noopener noreferrer">
             🚀 DrakeStar Launcher Repo
           </a>
+          <a class="tag-link" href="https://github.com/SlimefunNewHorizons/drakestar-fused" target="_blank" rel="noopener noreferrer">
+            ⚡ DrakeStar Fused Bridge Mod
+          </a>
         </div>
       </div>
     </div>
@@ -169,8 +221,11 @@
         <button class="btn primary hero-play-btn" onclick={quickLaunchLan}>
           ▶ INICIAR SLIMEFUN LOCAL + CONSOLA
         </button>
+        <button class="btn" onclick={launchMinecraftClient} style="border: 1px solid #10b981; color: #10b981; font-weight: bold;">
+          🎮 LANZAR MINECRAFT (CLIENTE JAVA)
+        </button>
         <button class="btn" onclick={() => router.go('/forge/plugins')}>
-          📁 Abrir Carpeta de Plugins / Suites
+          📁 Abrir Plugins
         </button>
         <button class="btn" onclick={() => router.go('/forge/console')}>
           🖥️ Consola Flotante
@@ -196,11 +251,11 @@
         <header>
           <img class="mi" src={brand.modeIcon(p.mode)} alt="" />
           <div class="t"><h2 id="h-active" style="margin:0">{p.name}</h2><span class="muted mono">{p.id}</span></div>
-          {#if p.mode === 'local-server'}<StatePill state={app.statusOf(p.id).state} />{/if}
+          {#if p.mode === 'local-server' || p.mode === 'drakes-java'}<StatePill state={app.statusOf(p.id).state} />{/if}
         </header>
         <ProfileSummary {p} />
         <div class="row">
-          <button class="play" onclick={playActive} aria-label={p.mode === 'drakes-rust' ? 'Lanzar DrakesRust' : (compat?.launch_implemented ? 'Iniciar servidor' : 'Lanzar')} style="cursor: pointer;">
+          <button class="play" onclick={playActive} aria-label="Lanzar perfil activo" style="cursor: pointer;">
             <img src="./brand/ui/button-play-primary.svg" alt="JUGAR" height="52" />
           </button>
           <button class="btn" onclick={() => router.go(modeHome[p.mode])}>Abrir {modeLabel[p.mode]}</button>
@@ -208,6 +263,10 @@
         {#if p.mode === 'drakes-rust'}
           <div class="alert ok" style="border-left: 3px solid var(--gold); background: rgba(245, 185, 66, 0.08); color: var(--gold-2); font-size: 0.9rem;">
             ⚔️ <strong>Servidor Destino:</strong> mc.drakescraft.cl:25565 · Rust Native Client
+          </div>
+        {:else if p.mode === 'drakes-java'}
+          <div class="alert ok" style="border-left: 3px solid #10b981; background: rgba(16, 185, 129, 0.08); color: #34d399; font-size: 0.9rem;">
+            🎮 <strong>Cliente Minecraft Java:</strong> Loader {p.loader} · KnotClient Activo
           </div>
         {:else if compat && !compat.launch_implemented}
           <div class="alert warn">Lanzar no está disponible para {modeLabel[p.mode]}: {compat.launch_note}.</div>
@@ -237,8 +296,9 @@
       <h2>Arquitectura Multi-Motor DrakeStar</h2>
       <ul class="muted" style="padding-left:1.1rem;margin:0; font-size: 0.85rem; line-height: 1.5;">
         <li><strong>Slimefun Solitario / LAN:</strong> Purpur 26.2 + StarSuites 20k+ items sin lag.</li>
+        <li><strong>Cliente Minecraft Java (Fabric):</strong> KnotClient integrado con mods y shaders.</li>
         <li><strong>DrakesRust Native Client:</strong> Protocolo 767, conexión C/Rust directa sin JVM.</li>
-        <li><strong>Bridge Mod (DrakeStar Fused):</strong> Inyección de Bukkit en el IntegratedServer de Fabric/Forge para correr shaders + Slimefun en una sola instancia.</li>
+        <li><strong>Bridge Mod (DrakeStar Fused):</strong> Inyección de Bukkit en el IntegratedServer.</li>
         <li><strong>Discord SRE & Soporte:</strong> Integración 24/7 con SAORI para soporte y reportes.</li>
       </ul>
       <div class="row" style="margin-top:0.4rem;">
