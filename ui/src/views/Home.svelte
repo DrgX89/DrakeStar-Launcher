@@ -28,13 +28,17 @@
     if (p.mode === 'drakes-rust') {
       launching = true;
       try {
-        await fetch('/api/launch-rust', { method: 'POST' });
-        app.notify('ok', '⚔️ ¡Lanzando DrakesRust conectado a mc.drakescraft.cl:25565!');
-      } catch (e) {
-        app.notify('info', 'Abriendo lanzador DrakesRust...');
-        try { await fetch('/api/launch-horizon', { method: 'POST' }); } catch {}
+        let st = await api.rustStatus(p.id).catch(() => null);
+        if (!st || !st.ready) {
+          app.notify('info', 'Instalando y verificando cliente nativo DrakesRust...');
+          st = await api.rustInstall(p.id);
+        }
+        await api.rustStart(p.id);
+        app.notify('ok', `⚔️ ¡Cliente DrakesRust conectado a ${p.server || 'mc.drakescraft.cl:25565'}!`);
+      } catch (err: any) {
+        app.notify('err', `Error al iniciar DrakesRust: ${err?.message || err}`);
       } finally {
-        setTimeout(() => { launching = false; }, 3000);
+        setTimeout(() => { launching = false; }, 2000);
       }
       return;
     }

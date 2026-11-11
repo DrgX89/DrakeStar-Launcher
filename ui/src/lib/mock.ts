@@ -27,6 +27,7 @@ let settings: Settings = { java_path: null, active_profile: 'local-dev' };
 let manifestReleases: any[] | null = null;
 let eula = false;
 let jarPresent = true;
+let rustClientInstalled = false;
 const props: Prop[] = [
   { key: 'motd', value: 'DrakeStar Dev' }, { key: 'server-port', value: '25565' }, { key: 'max-players', value: '8' },
   { key: 'online-mode', value: 'false' }, { key: 'difficulty', value: 'normal' }, { key: 'gamemode', value: 'survival' },
@@ -221,12 +222,42 @@ export async function mockInvoke(cmd: string, a: Record<string, any> = {}): Prom
     case 'ping_server': throw '[MOCK] el ping TCP real solo existe en la app Tauri';
     case 'mods_report':
     case 'mods_decide': return delay({ discovered: 138, verified: 138, order: ['fabric-api', 'sodium', 'distanthorizons'], not_loaded: [], abi: [['fabric-api', 'Java (JVM)', '2.0'], ['sodium', 'Java (JVM)', '2.0']], classpath: [], warnings: [], bytes: 157_000_000, skipped: ['algo-forge.jar: no es Fabric'] });
-    case 'rust_client_status': return { profile: a.id, binary: '(mock)', installed: false, executable: false, version: null, ready: false, reason: 'el cliente no esta instalado todavia' };
-    case 'rust_client_plan': throw 'no encontrado: cliente no instalado';
-    case 'rust_client_install': throw '[MOCK] la descarga real solo existe en la app Tauri';
-    case 'rust_client_start': throw 'no encontrado: cliente no instalado';
-    case 'rust_client_stop':
-    case 'rust_client_command': throw `'${a.id}' no esta en ejecucion`;
+    case 'rust_client_status': return { profile: a.id, binary: '(mock)/drakestar-rust-client', installed: rustClientInstalled, executable: rustClientInstalled, version: rustClientInstalled ? '0.1.0-mock' : null, ready: rustClientInstalled, reason: rustClientInstalled ? null : 'el cliente Rust no está instalado todavía' };
+    case 'rust_client_plan': return 'drakestar-rust-client --server mc.drakescraft.cl:25565 --name PlayerDev\n(cwd: (mock)/profiles/' + a.id + '/instance)';
+    case 'rust_client_install': {
+      rustClientInstalled = true;
+      return { profile: a.id, binary: '(mock)/drakestar-rust-client', installed: true, executable: true, version: '0.1.0-mock', ready: true, reason: null };
+    }
+    case 'rust_client_start': {
+      prof(a.id);
+      rustClientInstalled = true;
+      const id = a.id as string;
+      if (status[id] && ['running', 'stopping'].includes(status[id].state)) throw `'${id}' ya está en ejecución`;
+      hist[id] = hist[id] ?? [];
+      status[id] = { state: 'running', pid: 5252, started_at: Date.now(), exit_code: null, log_file: '(mock)' };
+      emit({ type: 'state', profile: id, state: 'running', code: null });
+      line(id, 'system', '--- [MOCK] DrakesRust Native Client iniciado ---');
+      const script: [number, StreamKind, string][] = [
+        [200, 'stdout', '[drakestar-rust-client] Initializing hardware acceleration (Vulkan/WGPU)...'],
+        [500, 'stdout', '[drakestar-rust-client] Connecting to mc.drakescraft.cl:25565...'],
+        [900, 'stdout', '[drakestar-rust-client] Handshake and offline login completed successfully.'],
+        [1200, 'stdout', '[drakestar-rust-client] World terrain received. Rendering frame pipeline ready.'],
+      ];
+      timers[id] = script.map(([ms, s, t]) => window.setTimeout(() => line(id, s, t), ms));
+      return status[id];
+    }
+    case 'rust_client_stop': {
+      const st = status[a.id]; if (!st || st.state !== 'running') throw `'${a.id}' no está en ejecución`;
+      timers[a.id]?.forEach(clearTimeout); setState(a.id, 'stopping');
+      line(a.id, 'stdin', 'quit');
+      window.setTimeout(() => { line(a.id, 'stdout', '[drakestar-rust-client] Client disconnected'); line(a.id, 'system', '--- [MOCK] proceso terminado (código 0) ---'); setState(a.id, 'stopped', 0); }, 500);
+      return;
+    }
+    case 'rust_client_command': {
+      const st = status[a.id]; if (!st || st.state !== 'running') throw `'${a.id}' no está en ejecución`;
+      line(a.id, 'stdin', a.line);
+      return;
+    }
     case 'diagnostics': return JSON.stringify({ app: 'DrakeStar', backend: 'mock', nota: 'diagnostico simulado, no del sistema real' }, null, 2);
     default: throw `comando desconocido en el mock: ${cmd}`;
   }

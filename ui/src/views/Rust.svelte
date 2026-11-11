@@ -4,16 +4,33 @@
   import ReleaseCard from '../components/ReleaseCard.svelte';
   import ProfileSummary from '../components/ProfileSummary.svelte';
   import CompatTable from '../components/CompatTable.svelte';
-  import type { Profile } from '../lib/types';
+  import { api } from '../lib/api';
+  import type { Profile, RustClientStatus } from '../lib/types';
   let { p }: { p: Profile } = $props();
 
+  let rustStatus = $state<RustClientStatus | null>(null);
+  let busy = $state(false);
+
+  $effect(() => {
+    void p.id;
+    void api.rustStatus(p.id).then((st) => (rustStatus = st)).catch(() => {});
+  });
+
   async function launchDirect() {
+    busy = true;
     try {
-      await fetch('/api/launch-rust', { method: 'POST' });
-      app.notify('ok', '⚔️ ¡Lanzando DrakesRust conectado a mc.drakescraft.cl:25565!');
-    } catch {
-      app.notify('info', 'Abriendo lanzador...');
-      try { await fetch('/api/launch-horizon', { method: 'POST' }); } catch {}
+      let st = rustStatus;
+      if (!st || !st.ready) {
+        app.notify('info', 'Descargando y verificando cliente DrakesRust...');
+        st = await api.rustInstall(p.id);
+        rustStatus = st;
+      }
+      await api.rustStart(p.id);
+      app.notify('ok', `⚔️ ¡Cliente DrakesRust conectado a ${p.server || 'mc.drakescraft.cl:25565'}!`);
+    } catch (err: any) {
+      app.notify('err', `Error al iniciar DrakesRust: ${err?.message || err}`);
+    } finally {
+      busy = false;
     }
   }
 </script>
@@ -23,7 +40,9 @@
   <div>
     <strong>⚡ Cliente DrakesRust 26.2 (Rust Engine)</strong> — Listo para arrancar y conectar directamente al SMP oficial de DrakesCraft T2 (<code>mc.drakescraft.cl:25565</code>).
   </div>
-  <button class="btn primary" onclick={launchDirect} style="white-space: nowrap; font-weight: 800; letter-spacing: 1px;">⚔️ JUGAR AHORA</button>
+  <button class="btn primary" onclick={launchDirect} disabled={busy} style="white-space: nowrap; font-weight: 800; letter-spacing: 1px;">
+    {busy ? '⚔️ ARRANCANDO…' : '⚔️ JUGAR AHORA'}
+  </button>
 </div>
 <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(340px,1fr))">
   <section class="card stack"><h2>Perfil</h2><ProfileSummary {p} />
