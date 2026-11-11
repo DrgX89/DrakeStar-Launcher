@@ -26,20 +26,19 @@
       ]
     },
     {
-      "version": "2026.11.05",
+      "version": "0.1",
       "channel": "nightly",
       "minecraft": [
-        "26.2",
-        "26.3"
+        "26.2"
       ],
-      "notes": "DrakesRust Native Client (Horizon Engine 26.3 Rust Client with v26.2 protocol adapter)",
+      "notes": "DrakesRust Client nativo (headless): handshake + login offline + lectura del flujo. Sin cifrado (online-mode=false), sin compresion. Experimental.",
       "artifacts": [
         {
           "component": "drakes-rust-client",
-          "platform": "windows-x86_64",
-          "url": "https://github.com/horizon-rust/horizon/releases/download/nightly/horizon-windows-x64.zip",
-          "sha256": "b4a21d8004689844281b88509beb101467c492ec563e070a0de3e8b95311998e",
-          "size": 43728779
+          "platform": "linux-x86_64",
+          "url": "https://github.com/DrgX89/DrakeStar-Launcher/releases/download/DrakesRust-Client-v0.1/drakestar-rust-client",
+          "sha256": "2fc146b4ed8bbad5581bf7a183833903fdf8bf903b1ec53b97d4775fb39ca3f5",
+          "size": 613736
         }
       ]
     }
