@@ -302,6 +302,20 @@ export async function mockInvoke(cmd: string, a: Record<string, any> = {}): Prom
       return;
     }
     case 'diagnostics': return JSON.stringify({ app: 'DrakeStar', backend: 'mock', nota: 'diagnostico simulado, no del sistema real' }, null, 2);
+    case 'mods_guard_override': return;
+    case 'modrinth_search': return [
+      { project_id: 'AANobbMI', slug: 'sodium', title: 'Sodium', description: 'Motor de renderizado moderno para Minecraft', categories: ['fabric'], icon_url: null, downloads: 45000000, follows: 80000, author: 'jellysquid3' },
+      { project_id: 'gvQqBUqZ', slug: 'lithium', title: 'Lithium', description: 'Optimización de físicas, IA y chunks', categories: ['fabric'], icon_url: null, downloads: 35000000, follows: 60000, author: 'jellysquid3' },
+      { project_id: 'YL57xq9U', slug: 'iris', title: 'Iris Shaders', description: 'Compatibilidad de shaders moderna', categories: ['fabric'], icon_url: null, downloads: 30000000, follows: 50000, author: 'coderbot' },
+    ];
+    case 'modrinth_versions': return [
+      { id: 'v1', name: 'Sodium 0.6.0', version_number: '0.6.0', game_versions: ['1.21.1'], loaders: ['fabric'], files: [{ url: 'https://example.com/sodium.jar', filename: 'sodium-fabric-0.6.0.jar', primary: true, size: 1024000 }] }
+    ];
+    case 'modrinth_install': return 1024000;
+    case 'prism_list_instances': return [
+      { dir_name: 'DrakesCraft-ModPack-v67', path: '/home/jack/.local/share/PrismLauncher/instances/DrakesCraft-ModPack-v67', name: 'DrakesCraft ModPack v67 - LIMPIO', icon: 'flame', minecraft_version: '1.21.8', loader_version: '0.16.9', mod_count: 94 }
+    ];
+    case 'prism_import_instance': return { profile_id: 'prism-drakescraft-modpack-v67', profile_name: 'DrakesCraft ModPack v67 - LIMPIO', mods_imported: 94 };
     default: throw `comando desconocido en el mock: ${cmd}`;
   }
 }

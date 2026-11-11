@@ -4,11 +4,16 @@
   import { brand, modeLabel } from '../lib/brand';
   import ChannelPill from '../components/ChannelPill.svelte';
   import ProfileEditor from './ProfileEditor.svelte';
-  import type { Profile } from '../lib/types';
+  import { playClick, playSuccess, playError } from '../lib/sound';
+  import type { Profile, PrismInstanceSummary } from '../lib/types';
 
   let dlg: HTMLDialogElement | undefined = $state();
   let editing = $state<{ p: Profile; creating: boolean } | null>(null);
   let importDlg: HTMLDialogElement | undefined = $state();
+  let prismDlg: HTMLDialogElement | undefined = $state();
+  let prismInstances = $state<PrismInstanceSummary[]>([]);
+  let prismLoading = $state(false);
+  let prismImportStatus = $state<string | null>(null);
   let exportDlg: HTMLDialogElement | undefined = $state();
   let importText = $state('');
   let importOverwrite = $state(false);
@@ -63,13 +68,43 @@
     const r = await app.guard(() => api.importProfile(importText, importOverwrite), 'Perfil importado');
     if (r) { importDlg?.close(); importText = ''; await app.refreshProfiles(); }
   }
+
+  async function openPrism() {
+    playClick();
+    prismLoading = true;
+    prismImportStatus = null;
+    prismDlg?.showModal();
+    try {
+      prismInstances = await api.prismListInstances();
+    } catch (e) {
+      prismImportStatus = `Error leyendo Prism: ${e}`;
+    } finally {
+      prismLoading = false;
+    }
+  }
+
+  async function importFromPrism(inst: PrismInstanceSummary) {
+    playClick();
+    prismImportStatus = `Migrando «${inst.name}» (${inst.mod_count} mods)…`;
+    try {
+      const res = await api.prismImportInstance(inst.path);
+      playSuccess();
+      prismImportStatus = `¡Instancia importada! Perfil «${res.profile_name}» con ${res.mods_imported} mods listos.`;
+      await app.refreshProfiles();
+      app.setActive(res.profile_id);
+    } catch (e) {
+      playError();
+      prismImportStatus = `Error al importar: ${e}`;
+    }
+  }
 </script>
 
-<div class="row between">
+<div class="row between wrap" style="gap:1rem">
   <h1>Perfiles</h1>
-  <div class="row">
-    <button class="btn" onclick={() => { importDlg?.showModal(); }}>Importar JSON</button>
-    <button class="btn primary" onclick={() => open(blank(), true)}>Nuevo perfil</button>
+  <div class="row" style="gap:.5rem">
+    <button class="btn secondary" onclick={openPrism}>🔮 Importar de Prism</button>
+    <button class="btn" onclick={() => { playClick(); importDlg?.showModal(); }}>Importar JSON</button>
+    <button class="btn primary" onclick={() => { playClick(); open(blank(), true); }}>Nuevo perfil</button>
   </div>
 </div>
 <p class="muted">Cada perfil es un JSON validado por <code>drakestar-core</code> y guardado en <code>profiles/&lt;id&gt;/profile.json</code> dentro del directorio de datos{#if app.info} (<code>{app.info.data_dir}</code>){/if}.</p>
@@ -166,4 +201,51 @@
       </div>
     </div>
   {/if}
+</dialog>
+
+<dialog bind:this={prismDlg} aria-label="Importar instancias desde Prism Launcher" style="max-width:650px;width:90%">
+  <div class="stack">
+    <div class="row between">
+      <h2>🔮 Instancias Detectadas en Prism Launcher</h2>
+      <button class="btn sub" onclick={() => prismDlg?.close()}>✕</button>
+    </div>
+    <p class="muted">
+      DrakeStar detecta automáticamente tus instancias de Prism Launcher (versiones oficiales o forks).
+      Al importar, se transfiere tu configuración, versión de Minecraft, Fabric y todos tus mods con verificación íntegra de SHA-256.
+    </p>
+
+    {#if prismImportStatus}
+      <div class="alert info">{prismImportStatus}</div>
+    {/if}
+
+    {#if prismLoading}
+      <p class="muted">Escaneando instancias en disco…</p>
+    {:else if prismInstances.length === 0}
+      <div class="card"><p class="muted">No se detectaron instancias de Prism Launcher en las rutas estándar.</p></div>
+    {:else}
+      <div class="stack" style="gap:.75rem;max-height:400px;overflow-y:auto;padding-right:.25rem">
+        {#each prismInstances as inst (inst.path)}
+          <div class="card row between wrap" style="align-items:center;padding:.85rem;background:rgba(255,255,255,0.03)">
+            <div class="stack" style="gap:.2rem">
+              <div class="row" style="gap:.5rem;align-items:center">
+                <strong>{inst.name}</strong>
+                <span class="badge neutral">MC {inst.minecraft_version}</span>
+                {#if inst.loader_version}<span class="badge yes">Fabric {inst.loader_version}</span>{/if}
+              </div>
+              <span class="muted" style="font-size:0.85rem">
+                📁 <code>{inst.dir_name}</code> · 📦 <strong>{inst.mod_count}</strong> mods instalados
+              </span>
+            </div>
+            <button class="btn primary" style="font-size:0.85rem" onclick={() => importFromPrism(inst)}>
+              ⬇️ Importar a DrakeStar
+            </button>
+          </div>
+        {/each}
+      </div>
+    {/if}
+
+    <div class="row" style="margin-top:.5rem;justify-content:flex-end">
+      <button class="btn" onclick={() => prismDlg?.close()}>Cerrar</button>
+    </div>
+  </div>
 </dialog>

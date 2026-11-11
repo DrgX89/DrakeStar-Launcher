@@ -34,6 +34,8 @@ pub struct FoundMod {
     /// colisiones: dos mods tocando la misma clase es lo que hace crasear
     /// Fabric en caliente).
     pub mixin_targets: Vec<String>,
+    /// Resultado de análisis de seguridad de Blackwall Guard
+    pub security: drakestar_core::guard::ScanResult,
 }
 
 /// Lo que se guarda en `mods.lock.json`: el hash esperado de cada archivo.
@@ -53,6 +55,38 @@ pub fn lock_path(dir: &Path) -> PathBuf {
     dir.join("mods.lock.json")
 }
 
+pub fn allowlist_path(dir: &Path) -> PathBuf {
+    dir.join("guard.allowlist.json")
+}
+
+pub fn read_allowlist(dir: &Path) -> drakestar_core::guard::GuardAllowlist {
+    let p = allowlist_path(dir);
+    if !p.is_file() {
+        return drakestar_core::guard::GuardAllowlist::default();
+    }
+    std::fs::read_to_string(p)
+        .ok()
+        .and_then(|t| serde_json::from_str(&t).ok())
+        .unwrap_or_default()
+}
+
+pub fn write_allowlist(dir: &Path, list: &drakestar_core::guard::GuardAllowlist) -> AppResult<()> {
+    crate::layout::write_atomic(&allowlist_path(dir), serde_json::to_string_pretty(list)?.as_bytes())?;
+    Ok(())
+}
+
+pub fn set_override(dir: &Path, item: &str, allow: bool) -> AppResult<()> {
+    let mut list = read_allowlist(dir);
+    if allow {
+        if !list.allowed.contains(&item.to_string()) {
+            list.allowed.push(item.to_string());
+        }
+    } else {
+        list.allowed.retain(|x| x != item);
+    }
+    write_allowlist(dir, &list)
+}
+
 /// Descubre los mods de `dir`: los jars de primer nivel y, recursivamente, sus
 /// jar-in-jar (como hace el loader de Fabric). Un jar sin `fabric.mod.json` se
 /// ignora (no es un mod de Fabric).
@@ -62,6 +96,7 @@ pub fn discover(dir: &Path) -> AppResult<(Vec<FoundMod>, Vec<String>)> {
     if !dir.is_dir() {
         return Ok((out, warns));
     }
+    let allowlist = read_allowlist(dir);
     let mut jars: Vec<PathBuf> = std::fs::read_dir(dir)?
         .flatten()
         .map(|e| e.path())
@@ -73,7 +108,7 @@ pub fn discover(dir: &Path) -> AppResult<(Vec<FoundMod>, Vec<String>)> {
     jars.sort();
     for j in jars {
         let disabled = j.to_string_lossy().ends_with(".jar.disabled");
-        collect(&j, false, disabled, &mut out, &mut warns)?;
+        collect(&j, false, disabled, &allowlist, &mut out, &mut warns)?;
     }
     out.sort_by(|a, b| a.id.cmp(&b.id));
     Ok((out, warns))
@@ -97,8 +132,6 @@ fn read_mixin_targets(zip: &mut zip::ZipArchive<std::fs::File>) -> Vec<String> {
         let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) else { continue };
         let Some(list) = json.get("mixins").and_then(|m| m.as_array()) else { continue };
         for entry in list {
-            // el objetivo puede ser el nombre de la mezcla (que ya incluye el
-            // paquete) o el campo "class"
             if let Some(c) = entry.get("class").and_then(|c| c.as_str()) {
                 out.push(c.to_string());
             }
@@ -109,7 +142,78 @@ fn read_mixin_targets(zip: &mut zip::ZipArchive<std::fs::File>) -> Vec<String> {
     out
 }
 
-fn collect(path: &Path, nested: bool, disabled: bool, out: &mut Vec<FoundMod>, warns: &mut Vec<String>) -> AppResult<()> {
+fn scan_zip_security(
+    file_name: &str,
+    zip: &mut zip::ZipArchive<std::fs::File>,
+    allowlist: &drakestar_core::guard::GuardAllowlist,
+    sha256: &str,
+) -> drakestar_core::guard::ScanResult {
+    let mut reasons = Vec::new();
+    let mut suspicious_strings = std::collections::BTreeSet::new();
+    let mut max_risk = drakestar_core::guard::RiskLevel::Safe;
+
+    for i in 0..zip.len() {
+        if let Ok(mut entry) = zip.by_index(i) {
+            let name = entry.name().to_string();
+            if name.ends_with(".exe") || name.ends_with(".bat") || name.ends_with(".sh") {
+                reasons.push(format!("Contiene binario ejecutable externo: {name}"));
+                suspicious_strings.insert(name.clone());
+                max_risk = drakestar_core::guard::RiskLevel::Dangerous;
+            }
+            if name.ends_with(".class") {
+                let mut buf = vec![0u8; 4096.min(entry.size() as usize)];
+                let _ = entry.read(&mut buf);
+                let text = String::from_utf8_lossy(&buf);
+                if text.contains("java/lang/ProcessBuilder") {
+                    reasons.push("Invocación no autorizada de procesos (ProcessBuilder)".into());
+                    suspicious_strings.insert("ProcessBuilder".into());
+                    max_risk = drakestar_core::guard::RiskLevel::Dangerous;
+                }
+                if text.contains("Runtime;->exec") || text.contains("getRuntime().exec") {
+                    reasons.push("Ejecución de comandos de terminal (Runtime.exec)".into());
+                    suspicious_strings.insert("Runtime.exec".into());
+                    max_risk = drakestar_core::guard::RiskLevel::Dangerous;
+                }
+                if text.contains("discord.com/api/webhooks") {
+                    reasons.push("Exfiltración potencial a Discord Webhook".into());
+                    suspicious_strings.insert("discord-webhook".into());
+                    max_risk = drakestar_core::guard::RiskLevel::Dangerous;
+                }
+                if text.contains(".ssh/id_") || text.contains("id_rsa") || text.contains("id_ed25519") {
+                    reasons.push("Intento de acceso o robo de llaves SSH privadas".into());
+                    suspicious_strings.insert("ssh-key-theft".into());
+                    max_risk = drakestar_core::guard::RiskLevel::Dangerous;
+                }
+            }
+        }
+    }
+    reasons.sort();
+    reasons.dedup();
+
+    let allowed = allowlist.is_allowed(file_name, sha256);
+    let mut quarantine = max_risk == drakestar_core::guard::RiskLevel::Dangerous;
+    if allowed {
+        quarantine = false;
+    }
+
+    drakestar_core::guard::ScanResult {
+        file: file_name.to_string(),
+        risk: max_risk,
+        reasons,
+        suspicious_strings: suspicious_strings.into_iter().collect(),
+        quarantine,
+        user_override: allowed,
+    }
+}
+
+fn collect(
+    path: &Path,
+    nested: bool,
+    disabled: bool,
+    allowlist: &drakestar_core::guard::GuardAllowlist,
+    out: &mut Vec<FoundMod>,
+    warns: &mut Vec<String>,
+) -> AppResult<()> {
     let file = std::fs::File::open(path)?;
     let mut zip = zip::ZipArchive::new(file)
         .map_err(|e| AppError::Invalid(format!("{}: no es un jar leible ({e})", path.file_name().unwrap_or_default().to_string_lossy())))?;
@@ -135,6 +239,8 @@ fn collect(path: &Path, nested: bool, disabled: bool, out: &mut Vec<FoundMod>, w
     let sha256 = drakestar_net::sha256_file(path).map_err(AppError::from)?;
     // targets de Mixin: los .mixins.json que declara el manifiesto
     let mixin_targets = read_mixin_targets(&mut zip);
+    let file_name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+    let security = scan_zip_security(&file_name, &mut zip, allowlist, &sha256);
     // sus jar-in-jar
     let nested_files: Vec<String> = serde_json::from_str::<serde_json::Value>(&text)
         .ok()
@@ -145,7 +251,7 @@ fn collect(path: &Path, nested: bool, disabled: bool, out: &mut Vec<FoundMod>, w
         .collect();
     out.push(FoundMod {
         id: manifest.id.clone(),
-        file: path.file_name().unwrap_or_default().to_string_lossy().to_string(),
+        file: file_name,
         path: path.to_path_buf(),
         sha256,
         size: meta.len(),
@@ -153,6 +259,7 @@ fn collect(path: &Path, nested: bool, disabled: bool, out: &mut Vec<FoundMod>, w
         nested,
         disabled,
         mixin_targets,
+        security,
     });
     for n in nested_files {
         let mut buf = vec![];
@@ -163,7 +270,7 @@ fn collect(path: &Path, nested: bool, disabled: bool, out: &mut Vec<FoundMod>, w
         // porque el cargador trabaja con rutas
         let tmp = std::env::temp_dir().join(format!("drakestar-jij-{}-{}", std::process::id(), out.len()));
         if std::fs::write(&tmp, &buf).is_ok() {
-            let _ = collect(&tmp, true, false, out, warns);
+            let _ = collect(&tmp, true, false, allowlist, out, warns);
             let _ = std::fs::remove_file(&tmp);
         }
     }
@@ -245,6 +352,8 @@ pub struct LoadReport {
     /// IDs duplicados y colisiones de clases objetivo de Mixin (lo que hace
     /// crasear Fabric en caliente: mejor avisar antes).
     pub collisions: Vec<String>,
+    /// Alertas y detecciones del motor de seguridad Blackwall Guard.
+    pub security_alerts: Vec<drakestar_core::guard::ScanResult>,
 }
 
 /// Carga los mods de un perfil: descubre, verifica, valida con el intermediario
@@ -270,7 +379,20 @@ pub fn load(l: &Layout, p: &Profile, side: mods::Environment) -> AppResult<LoadR
     let mut not_loaded: Vec<(String, String)> = vec![];
     let mut abi: Vec<(String, String, String)> = vec![];
     let mut manifests: Vec<mods::ModManifest> = vec![];
+    let mut security_alerts: Vec<drakestar_core::guard::ScanResult> = vec![];
+
     for m in &usable {
+        if m.security.risk != drakestar_core::guard::RiskLevel::Safe {
+            security_alerts.push(m.security.clone());
+        }
+        if m.security.quarantine && !m.security.user_override {
+            not_loaded.push((
+                m.id.clone(),
+                format!("Bloqueado por DrakeStar Blackwall Guard: {}", m.security.reasons.join(", ")),
+            ));
+            continue;
+        }
+
         match inter::plan(&m.manifest, &catalog, side) {
             Ok(pl) => abi.push((pl.id.clone(), pl.runtime.label().to_string(), pl.abi.to_string())),
             Err(e) => not_loaded.push((m.id.clone(), e.to_string())),
@@ -335,6 +457,7 @@ pub fn load(l: &Layout, p: &Profile, side: mods::Environment) -> AppResult<LoadR
         classpath,
         warnings: warnings.into_iter().map(|w| (w.mod_id, w.text)).collect(),
         bytes,
+        security_alerts,
     })
 }
 
@@ -481,6 +604,7 @@ mod tests {
             bytes: 0,
             skipped: vec![],
             collisions: vec![],
+            security_alerts: vec![],
         };
         let n = apply_decisions(&dir, &found, &report).unwrap();
         assert_eq!(n, 1);
@@ -541,6 +665,55 @@ mod tests {
             "colisiones: {:?}",
             report.collisions
         );
+    }
+
+    #[test]
+    fn blackwall_guard_blocks_dangerous_and_override_allows() {
+        let dir = crate::testutil::tmpdir("mods-guard");
+        std::fs::create_dir_all(&dir).unwrap();
+        let evil_manifest = r#"{"schemaVersion":1,"id":"evilmod","version":"1.0.0","environment":"*","entrypoints":{"main":["evil.Main"]}}"#;
+        let mut buf = vec![];
+        {
+            let mut z = zip::ZipWriter::new(std::io::Cursor::new(&mut buf));
+            let opts: zip::write::SimpleFileOptions = Default::default();
+            use std::io::Write;
+            z.start_file("fabric.mod.json", opts).unwrap();
+            z.write_all(evil_manifest.as_bytes()).unwrap();
+            z.start_file("evil/Main.class", opts).unwrap();
+            z.write_all(b"CAFEBABE...java/lang/ProcessBuilder...cmd.exe").unwrap();
+            z.finish().unwrap();
+        }
+        std::fs::write(dir.join("evilmod.jar"), &buf).unwrap();
+
+        // 1. Descubrimiento: detectado como peligroso y en cuarentena
+        let (found, _) = discover(&dir).unwrap();
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].security.risk, drakestar_core::guard::RiskLevel::Dangerous);
+        assert!(found[0].security.quarantine);
+        assert!(!found[0].security.user_override);
+
+        // 2. Carga: bloqueado en not_loaded
+        let l = Layout::new(crate::testutil::tmpdir("mods-guard-l"));
+        let mut p = sample("cli", drakestar_core::Mode::DrakesJava);
+        p.loader = drakestar_core::profile::Loader::Fabric;
+        let inst = crate::fabric::instance_dir(&l, &p.id).join("mods");
+        std::fs::create_dir_all(&inst).unwrap();
+        std::fs::copy(dir.join("evilmod.jar"), inst.join("evilmod.jar")).unwrap();
+
+        let report = load(&l, &p, drakestar_core::mods::Environment::Client).unwrap();
+        assert!(report.order.is_empty());
+        assert_eq!(report.not_loaded.len(), 1);
+        assert!(report.not_loaded[0].1.contains("Blackwall Guard"));
+        assert_eq!(report.security_alerts.len(), 1);
+
+        // 3. El usuario activa la casilla de permitir ("Sé lo que estoy haciendo")
+        set_override(&inst, "evilmod.jar", true).unwrap();
+
+        // 4. Nueva carga: ahora se respeta la decisión del usuario
+        let report_allowed = load(&l, &p, drakestar_core::mods::Environment::Client).unwrap();
+        assert_eq!(report_allowed.security_alerts.len(), 1);
+        assert!(report_allowed.security_alerts[0].user_override);
+        assert_eq!(report_allowed.order, vec!["evilmod".to_string()]);
     }
 
     /// El cargador real: instala el cliente y carga los mods de una carpeta.

@@ -154,6 +154,15 @@ export interface RustClientStatus {
 }
 
 /** Informe del cargador de mods (`drakestar_app::mods`). */
+export interface ScanResult {
+  file: string;
+  risk: 'safe' | 'suspicious' | 'dangerous';
+  reasons: string[];
+  suspicious_strings: string[];
+  quarantine: boolean;
+  user_override: boolean;
+}
+
 export interface LoadReport {
   discovered: number;
   verified: number;
@@ -169,6 +178,51 @@ export interface LoadReport {
   bytes: number;
   /** jars que no eran mods de Fabric validos. */
   skipped: string[];
+  security_alerts?: ScanResult[];
+}
+
+export interface ModrinthSearchHit {
+  project_id: string;
+  slug: string;
+  title: string;
+  description: string;
+  categories: string[];
+  icon_url: string | null;
+  downloads: number;
+  follows: number;
+  author: string;
+}
+
+export interface ModrinthVersionFile {
+  url: string;
+  filename: string;
+  primary: boolean;
+  size: number;
+}
+
+export interface ModrinthVersion {
+  id: string;
+  name: string;
+  version_number: string;
+  game_versions: string[];
+  loaders: string[];
+  files: ModrinthVersionFile[];
+}
+
+export interface PrismInstanceSummary {
+  dir_name: string;
+  path: string;
+  name: string;
+  icon: string;
+  minecraft_version: string;
+  loader_version: string | null;
+  mod_count: number;
+}
+
+export interface PrismImportResult {
+  profile_id: string;
+  profile_name: string;
+  mods_imported: number;
 }
 
 /** Estado del cliente Java gestionado (Fabric) (`drakestar_app::fabric`). */
