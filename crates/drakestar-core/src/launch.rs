@@ -58,7 +58,12 @@ pub fn rust_client_plan(p: &Profile, client_bin: &str, root: &str, username: &st
     if p.mode != Mode::DrakesRust {
         return None;
     }
-    let server = p.server.as_deref().map(str::trim).filter(|s| !s.is_empty())?;
+    let server = p
+        .server
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or("mc.drakescraft.cl:25565");
     Some(LaunchPlan {
         program: client_bin.into(),
         args: vec!["--server".into(), server.to_string(), "--name".into(), username.to_string()],
@@ -126,9 +131,11 @@ mod tests {
         assert_eq!(plan.program, "/bin/drakestar-rust-client");
         assert_eq!(plan.args, vec!["--server", "localhost:25565", "--name", "nix"]);
         assert_eq!(plan.cwd, "/d/profiles/rust/instance");
-        // sin servidor al que conectar no hay plan
-        assert!(rust_client_plan(&rust_profile(None), "x", "/d", "nix").is_none());
-        assert!(rust_client_plan(&rust_profile(Some(" ")), "x", "/d", "nix").is_none());
+        // sin servidor explicito cae por defecto a Dallas (mc.drakescraft.cl:25565)
+        let def_plan = rust_client_plan(&rust_profile(None), "x", "/d", "nix").unwrap();
+        assert_eq!(def_plan.args, vec!["--server", "mc.drakescraft.cl:25565", "--name", "nix"]);
+        let def_plan_space = rust_client_plan(&rust_profile(Some(" ")), "x", "/d", "nix").unwrap();
+        assert_eq!(def_plan_space.args, vec!["--server", "mc.drakescraft.cl:25565", "--name", "nix"]);
         // ni para otros modos
         let mut p = rust_profile(Some("localhost"));
         p.mode = Mode::DrakesJava;

@@ -219,7 +219,7 @@ export async function mockInvoke(cmd: string, a: Record<string, any> = {}): Prom
       return r;
     }
     case 'install_server_jar': throw '[MOCK] la descarga real solo existe en la app Tauri';
-    case 'ping_server': throw '[MOCK] el ping TCP real solo existe en la app Tauri';
+    case 'ping_server': return delay(a.address?.includes('drakescraft') ? 165 : 45);
     case 'mods_report':
     case 'mods_decide': return delay({ discovered: 138, verified: 138, order: ['fabric-api', 'sodium', 'distanthorizons'], not_loaded: [], abi: [['fabric-api', 'Java (JVM)', '2.0'], ['sodium', 'Java (JVM)', '2.0']], classpath: [], warnings: [], bytes: 157_000_000, skipped: ['algo-forge.jar: no es Fabric'] });
     case 'rust_client_status': return { profile: a.id, binary: '(mock)/drakestar-rust-client', installed: rustClientInstalled, executable: rustClientInstalled, version: rustClientInstalled ? '0.1.0-mock' : null, ready: rustClientInstalled, reason: rustClientInstalled ? null : 'el cliente Rust no está instalado todavía' };

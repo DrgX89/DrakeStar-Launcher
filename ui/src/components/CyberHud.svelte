@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { app } from '../lib/state.svelte';
+  import { api } from '../lib/api';
 
   interface TelemetryItem {
     label: string;
@@ -8,12 +9,18 @@
     status: 'ok' | 'active' | 'sync' | 'warn';
   }
 
-  let ping = $state<number | null>(null);
+  let dallasPing = $state<number | null>(null);
+  let dallasStatus = $state<'online' | 'checking' | 'offline'>('checking');
   let pulse = $state(true);
 
   const activeProfile = $derived(app.active);
 
   const metrics = $derived<TelemetryItem[]>([
+    {
+      label: 'DALLAS SMP (T2)',
+      value: dallasPing !== null ? `mc.drakescraft.cl · ${dallasPing}ms` : dallasStatus === 'checking' ? 'Conectando a Dallas…' : 'mc.drakescraft.cl:25565',
+      status: dallasStatus === 'offline' ? 'warn' : 'ok',
+    },
     {
       label: 'HYBRID KERNEL',
       value: 'Purpur 26.2 b140 · FFM ABI 1',
@@ -36,11 +43,27 @@
     },
   ]);
 
+  async function checkDallas() {
+    try {
+      const ms = await api.ping('mc.drakescraft.cl:25565');
+      dallasPing = ms;
+      dallasStatus = 'online';
+    } catch {
+      dallasPing = null;
+      dallasStatus = 'offline';
+    }
+  }
+
   onMount(() => {
+    void checkDallas();
+    const pinger = setInterval(checkDallas, 15000);
     const timer = setInterval(() => {
       pulse = !pulse;
     }, 2400);
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(pinger);
+      clearInterval(timer);
+    };
   });
 </script>
 
