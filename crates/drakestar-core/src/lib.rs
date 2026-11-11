@@ -6,6 +6,7 @@
 pub mod channel;
 pub mod compat;
 pub mod fabric;
+pub mod guard;
 pub mod inter;
 pub mod launch;
 pub mod mods;

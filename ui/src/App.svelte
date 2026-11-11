@@ -3,6 +3,7 @@
   import { app } from './lib/state.svelte';
   import { router, routes, type RouteDef } from './lib/router.svelte';
   import { brand, modeHome, modeLabel } from './lib/brand';
+  import { sound } from './lib/sound';
   import type { Mode, Profile } from './lib/types';
   import Gate from './components/Gate.svelte';
   import Home from './views/Home.svelte';
@@ -61,7 +62,7 @@
   {:else}
     <div class="cyber-header-bar" role="status">
       <span class="live-dot"></span>
-      <span class="title">DRAKESTAR DECK v0.4.0</span>
+      <span class="title">DRAKESTAR DECK v{app.info?.version ?? '—'}</span>
       <span class="divider">::</span>
       <span class="target">ONLINE SMP · mc.drakescraft.cl:25565 (T2)</span>
       <span class="divider">::</span>
@@ -71,7 +72,7 @@
       <a class="brand" href="#/" aria-label="DrakeStar, inicio"><img src={brand.logo} alt="DrakeStar" /></a>
       <div role="group" aria-label="Selector de modo" class="tabs">
         {#each modes as m (m)}
-          <button onclick={() => pickMode(m)} aria-pressed={active?.mode === m} aria-label={modeLabel[m]}><img src={brand.tab(m, active?.mode === m)} alt={modeLabel[m]} /></button>
+          <button onclick={() => { sound.click(); pickMode(m); }} onmouseenter={() => sound.hover()} aria-pressed={active?.mode === m} aria-label={modeLabel[m]}><img src={brand.tab(m, active?.mode === m)} alt={modeLabel[m]} /></button>
         {/each}
       </div>
     </header>
@@ -79,7 +80,7 @@
       <aside class="sidebar">
         <div class="field" style="margin:0">
           <label for="active-profile">Perfil activo</label>
-          <select id="active-profile" value={app.settings.active_profile ?? ''} onchange={onSelect}>
+          <select id="active-profile" value={app.settings.active_profile ?? ''} onchange={(e) => { sound.click(); onSelect(e); }}>
             {#if !app.profiles.length}<option value="">(sin perfiles)</option>{/if}
             {#each app.profiles as p (p.id)}<option value={p.id}>{p.name} · {p.channel}</option>{/each}
           </select>
@@ -87,20 +88,20 @@
         <nav aria-label="Navegación principal">
           <h3>General</h3>
           {#each general as r (r.path)}
-            <a class="navlink" href={`#${r.path}`} aria-current={router.path === r.path ? 'page' : undefined}><img src={icons[r.path] ?? brand.isotype} alt="" />{r.title}</a>
+            <a class="navlink" href={`#${r.path}`} onclick={() => sound.click()} onmouseenter={() => sound.hover()} aria-current={router.path === r.path ? 'page' : undefined}><img src={icons[r.path] ?? brand.isotype} alt="" />{r.title}</a>
           {/each}
           {#if active}
             <h3>{modeLabel[active.mode]}</h3>
             {#each modeRoutes as r (r.path)}
-              <a class="navlink" class:sub={r.path.split('/').length > 2} href={`#${r.path}`} aria-current={router.path === r.path ? 'page' : undefined}><img src={icons[r.path] ?? brand.modeIcon(active.mode)} alt="" />{r.title}</a>
+              <a class="navlink" class:sub={r.path.split('/').length > 2} href={`#${r.path}`} onclick={() => sound.click()} onmouseenter={() => sound.hover()} aria-current={router.path === r.path ? 'page' : undefined}><img src={icons[r.path] ?? brand.modeIcon(active.mode)} alt="" />{r.title}</a>
             {/each}
           {/if}
           <h3>Ajustes</h3>
           {#each settingsRoutes as r (r.path)}
-            <a class="navlink" href={`#${r.path}`} aria-current={router.path === r.path ? 'page' : undefined}><img src={icons[r.path] ?? brand.icon('settings')} alt="" />{r.title}</a>
+            <a class="navlink" href={`#${r.path}`} onclick={() => sound.click()} onmouseenter={() => sound.hover()} aria-current={router.path === r.path ? 'page' : undefined}><img src={icons[r.path] ?? brand.icon('settings')} alt="" />{r.title}</a>
           {/each}
           <h3>Comunidad</h3>
-          <a class="navlink" href={brand.discordUrl} target="_blank" rel="noopener noreferrer" title="Unirse al Discord oficial de DrakesCraft">
+          <a class="navlink" href={brand.discordUrl} target="_blank" rel="noopener noreferrer" onclick={() => sound.click()} onmouseenter={() => sound.hover()} title="Unirse al Discord oficial de DrakesCraft">
             <img src={brand.icon('discord')} alt="Discord" />
             Discord Oficial
           </a>

@@ -1,7 +1,7 @@
 // Capa de acceso al backend. En Tauri llama a los comandos reales (drakestar-app).
 // En un navegador normal (vite dev / capturas) usa un MOCK en memoria, claramente marcado
 // en la UI (AppInfo.backend === 'mock'): no ejecuta procesos ni toca el disco.
-import type { AppInfo, JavaCheck, ModeCompat, Profile, ProfileList, ProcEvent, ProcStatus, LineRec, Settings, InstanceRow, LogFile, ServerStatus, Prop, PluginInfo, WorldInfo, Resolution, DeltaSyncPlan, DeltaSyncResult, ConflictReport, McStatus, LoadReport, RustClientStatus, ClientStatus } from './types';
+import type { AppInfo, JavaCheck, ModeCompat, Profile, ProfileList, ProcEvent, ProcStatus, LineRec, Settings, InstanceRow, LogFile, ServerStatus, Prop, PluginInfo, WorldInfo, Resolution, DeltaSyncPlan, DeltaSyncResult, ConflictReport, McStatus, LoadReport, RustClientStatus, ClientStatus, ModrinthSearchHit, ModrinthVersion, PrismInstanceSummary, PrismImportResult } from './types';
 
 type Invoke = <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
 type Listen = (cb: (e: ProcEvent) => void) => Promise<() => void>;
@@ -98,4 +98,11 @@ export const api = {
   clientPlan: (id: string) => call<string>('client_plan', { id }),
   clientStart: (id: string) => call<ProcStatus>('client_start', { id }),
   clientStop: (id: string) => call<void>('client_stop', { id }),
+
+  modsGuardOverride: (id: string, item: string, allow: boolean) => call<void>('mods_guard_override', { id, item, allow }),
+  modrinthSearch: (query: string, limit?: number) => call<ModrinthSearchHit[]>('modrinth_search', { query, limit }),
+  modrinthVersions: (projectId: string, mcVersion?: string) => call<ModrinthVersion[]>('modrinth_versions', { projectId, mcVersion }),
+  modrinthInstall: (id: string, fileUrl: string, fileName: string) => call<number>('modrinth_install', { id, fileUrl, fileName }),
+  prismListInstances: () => call<PrismInstanceSummary[]>('prism_list_instances'),
+  prismImportInstance: (path: string) => call<PrismImportResult>('prism_import_instance', { path }),
 };

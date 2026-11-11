@@ -391,6 +391,49 @@ fn mods_decide(svc: State<'_, Service>, id: String) -> Res<mods::LoadReport> {
     svc.mods_decide(&id).map_err(s)
 }
 
+// ---------- Blackwall Guard & Modrinth & Prism Import ----------
+#[tauri::command]
+fn mods_guard_override(svc: State<'_, Service>, id: String, item: String, allow: bool) -> Res<()> {
+    let p = svc.store.get(&id).map_err(s)?;
+    let instance = drakestar_app::fabric::instance_dir(&svc.layout, &p.id);
+    let mods_dir = instance.join("mods");
+    mods::set_override(&mods_dir, &item, allow).map_err(s)
+}
+
+#[tauri::command]
+async fn modrinth_search(query: String, limit: Option<usize>) -> Res<Vec<drakestar_app::modrinth::ModrinthSearchHit>> {
+    blocking(move || drakestar_app::modrinth::search_mods(&query, limit.unwrap_or(20)).map_err(s)).await?
+}
+
+#[tauri::command]
+async fn modrinth_versions(project_id: String, mc_version: Option<String>) -> Res<Vec<drakestar_app::modrinth::ModrinthVersion>> {
+    blocking(move || drakestar_app::modrinth::get_project_versions(&project_id, mc_version.as_deref()).map_err(s)).await?
+}
+
+#[tauri::command]
+async fn modrinth_install(svc: State<'_, Service>, id: String, file_url: String, file_name: String) -> Res<u64> {
+    let svc = svc.inner().clone();
+    blocking(move || {
+        let p = svc.store.get(&id).map_err(s)?;
+        let instance = drakestar_app::fabric::instance_dir(&svc.layout, &p.id);
+        let mods_dir = instance.join("mods");
+        drakestar_app::modrinth::install_mod(&mods_dir, &file_url, &file_name).map_err(s)
+    }).await?
+}
+
+#[tauri::command]
+fn prism_list_instances() -> Vec<drakestar_app::prism_import::PrismInstanceSummary> {
+    drakestar_app::prism_import::list_instances()
+}
+
+#[tauri::command]
+async fn prism_import_instance(svc: State<'_, Service>, path: String) -> Res<drakestar_app::prism_import::PrismImportResult> {
+    let svc = svc.inner().clone();
+    blocking(move || {
+        drakestar_app::prism_import::import_instance(std::path::Path::new(&path), &svc.layout, &svc.store).map_err(s)
+    }).await?
+}
+
 #[tauri::command]
 async fn diagnostics(svc: State<'_, Service>) -> Res<String> {
     let svc = svc.inner().clone();
@@ -437,7 +480,9 @@ pub fn run() {
             ping_server, ping_mc_status, diagnostics,
             client_status, client_install, client_plan, client_start, client_stop,
             rust_client_status, rust_client_install, rust_client_plan, rust_client_start,
-            rust_client_stop, rust_client_command, mods_report, mods_decide
+            rust_client_stop, rust_client_command, mods_report, mods_decide,
+            mods_guard_override, modrinth_search, modrinth_versions, modrinth_install,
+            prism_list_instances, prism_import_instance
         ])
         .run(tauri::generate_context!())
         .expect("error al ejecutar DrakeStar");

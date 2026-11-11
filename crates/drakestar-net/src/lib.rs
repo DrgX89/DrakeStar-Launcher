@@ -233,6 +233,40 @@ pub fn download_verified(
     store_verified(resp.into_reader(), dest, expected_sha256, expected_size, progress)
 }
 
+/// Descarga directa de archivo desde URL https segura hacia destino atómico con `.part`.
+pub fn download_direct(url: &str, dest: &Path) -> Result<u64, NetError> {
+    if !url_allowed(url) {
+        return Err(NetError::InsecureUrl(url.into()));
+    }
+    let resp = ureq::get(url)
+        .set("User-Agent", "DrakeStar-Launcher/0.5.0 (soporte@drakescraft.cl)")
+        .timeout(std::time::Duration::from_secs(120))
+        .call()
+        .map_err(|e| NetError::Http(e.to_string()))?;
+    let part = dest.with_extension(format!(
+        "{}.part",
+        dest.extension().and_then(|e| e.to_str()).unwrap_or("tmp")
+    ));
+    if let Some(parent) = dest.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let mut out = File::create(&part)?;
+    let mut reader = resp.into_reader();
+    let mut total = 0u64;
+    let mut buf = [0u8; 64 * 1024];
+    loop {
+        let n = reader.read(&mut buf)?;
+        if n == 0 {
+            break;
+        }
+        out.write_all(&buf[..n])?;
+        total += n as u64;
+    }
+    out.flush()?;
+    fs::rename(&part, dest)?;
+    Ok(total)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

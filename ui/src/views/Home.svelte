@@ -2,6 +2,7 @@
   import { api } from '../lib/api';
   import { app } from '../lib/state.svelte';
   import { brand, modeLabel, modeHome } from '../lib/brand';
+  import { sound } from '../lib/sound';
   import { router } from '../lib/router.svelte';
   import ProfileSummary from '../components/ProfileSummary.svelte';
   import StatePill from '../components/StatePill.svelte';
@@ -26,6 +27,7 @@
 
   async function playActive() {
     if (!p) return;
+    sound.launch();
     launching = true;
     try {
       if (p.mode === 'drakes-rust') {
@@ -35,6 +37,7 @@
           st = await api.rustInstall(p.id);
         }
         await api.rustStart(p.id);
+        sound.success();
         app.notify('ok', `⚔️ ¡Cliente DrakesRust conectado a ${p.server || 'mc.drakescraft.cl:25565'}!`);
         return;
       }
@@ -47,6 +50,7 @@
           await api.clientInstall(p.id);
         }
         await api.clientStart(p.id);
+        sound.success();
         app.notify('ok', `🎮 ¡Proceso de Minecraft iniciado con éxito (${p.name})!`);
         router.go('/instances');
         return;
@@ -54,7 +58,10 @@
 
       if (p.mode === 'local-server') {
         const r = await app.guard(() => api.serverStart(p.id), 'Servidor arrancando…');
-        if (r) router.go('/forge/console');
+        if (r) {
+          sound.success();
+          router.go('/forge/console');
+        }
         return;
       }
 
@@ -62,6 +69,7 @@
         app.notify('info', compat?.launch_note ?? 'Lanzamiento no disponible');
       }
     } catch (err: any) {
+      sound.error();
       app.notify('err', `Error al iniciar: ${err?.message || err}`);
     } finally {
       setTimeout(() => { launching = false; }, 2000);
