@@ -56,10 +56,10 @@
         name: 'Purpur Slimefun LAN',
         mode: 'local-server',
         channel: 'stable',
-        minecraft: '1.21.11',
+        minecraft: '26.2',
         loader: 'vanilla',
         java: {
-          major: 21,
+          major: 25,
           min_mem_mb: 2048,
           max_mem_mb: 4096,
           extra_jvm_args: ['-XX:+UseG1GC', '-Dfile.encoding=UTF-8'],
@@ -67,7 +67,7 @@
         server: 'drakespurpur.jar',
         preset: 'slimefun-classic',
         modpack: null,
-        notes: 'Instancia LAN Solitario/Multijugador local con Slimefun',
+        notes: 'Instancia LAN Solitario/Multijugador local con Slimefun v11 + StarSuites',
       };
       await app.guard(() => api.createProfile(newProf));
       await api.acceptEula(newProf.id).catch(() => {});
@@ -75,9 +75,24 @@
     }
     const profId = localProf.id;
     await app.setActive(profId);
-    app.notify('ok', '⚡ Instancia Local Slimefun iniciada. Abriendo consola Blackwall...');
-    await api.serverStart(profId).catch(() => {});
-    router.go('/forge/console');
+
+    // Comprobar si el JAR del servidor ya está instalado
+    const srv = await api.serverStatus(profId).catch(() => null);
+    if (!srv?.jar?.selected) {
+      app.notify('info', 'Descargando y verificando motor DrakesPurpur 26.2 (SHA-256)...');
+      await app.guard(() => api.installServerJar(profId), 'Motor DrakesPurpur instalado con éxito');
+    }
+
+    // Asegurar EULA aceptada
+    await api.acceptEula(profId).catch(() => {});
+
+    app.notify('ok', '⚡ Instancia Purpur + StarSuites iniciada. Abriendo consola Blackwall...');
+    const r = await app.guard(() => api.serverStart(profId), 'Servidor local iniciado');
+    if (r) {
+      router.go('/forge/console');
+    } else {
+      router.go('/forge');
+    }
   }
 </script>
 
@@ -120,21 +135,35 @@
       {/if}
     </section>
 
-    <!-- LAN Quick Instance Card -->
+    <!-- LAN Quick Instance Card (DrakesPurpur + StarSuites Slimefun) -->
     <section class="card stack" style="border: 1px solid rgba(0, 240, 255, 0.35); background: linear-gradient(135deg, rgba(8, 16, 26, 0.8), rgba(4, 8, 14, 0.9)); box-shadow: 0 4px 16px rgba(0, 240, 255, 0.08);">
       <header>
         <span style="font-size: 1.5rem; text-shadow: 0 0 8px #00f0ff;">⚡</span>
         <div class="t">
           <h2 style="margin:0; color: #00f0ff; font-size: 1.05rem; font-family: monospace;">INSTANCIA SLIMEFUN LOCAL (SOLITARIO / LAN)</h2>
-          <span class="muted" style="font-size:0.75rem;">Motor Purpur 26.2 + Slimefun v11 sin configurar servidores detrás</span>
+          <span class="muted" style="font-size:0.75rem;">DrakesPurpur 26.2 × StarSuites · Slimefun v11 sin configurar nada</span>
         </div>
       </header>
       <p style="font-size:0.85rem; color:#8b949e; margin:0.25rem 0; line-height: 1.4;">
-        Genera al vuelo una partida con motor Purpur y todos los addons de Slimefun. Compatible con cuentas premium y no-premium en red local de tu casa (Java o Bedrock).
+        Genera y arranca al vuelo una instancia local con motor <strong>DrakesPurpur 26.2</strong> y el ecosistema completo de <strong>StarSuites & Slimefun v11</strong>. Conexión directa en solitario o para jugar con amigos en tu red local (Java o Bedrock).
       </p>
-      <div class="row">
+      
+      <div class="instruction-box" style="background: rgba(0, 0, 0, 0.4); border: 1px dashed rgba(0, 240, 255, 0.25); border-radius: 8px; padding: 0.75rem; font-size: 0.8rem; color: #c9d1d9;">
+        <strong style="color: #00f0ff;">📖 Instrucciones de Juego:</strong>
+        <ol style="margin: 0.35rem 0 0.5rem 1.2rem; padding: 0; line-height: 1.5;">
+          <li>Haz clic en <strong>▶ INICIAR SERVIDOR LOCAL + CONSOLA</strong>. El launcher descargará y verificará automáticamente el JAR oficial (SHA-256) si no está instalado.</li>
+          <li>Aceptará el EULA automáticamente y abrirá la terminal Blackwall con telemetría de TPS y memoria.</li>
+          <li>En tu cliente de Minecraft (Java 26.2 o 1.21.x), conéctate a <code>localhost:25565</code> o <code>127.0.0.1:25565</code>.</li>
+          <li>¡Listo para jugar! Usa <code>/sf guide</code> in-game para acceder al libro y tecnologías de Slimefun.</li>
+        </ol>
+      </div>
+
+      <div class="row" style="margin-top: 0.25rem;">
         <button class="btn primary" onclick={quickLaunchLan} style="background: linear-gradient(135deg, #00f0ff, #0077b6); border:none; font-weight:bold; color:#05070a; letter-spacing:0.04em;">
           ▶ INICIAR SERVIDOR LOCAL + CONSOLA
+        </button>
+        <button class="btn" onclick={() => router.go('/forge/plugins')} style="font-size:0.8rem;">
+          📦 Ver Plugins / Suites
         </button>
       </div>
     </section>

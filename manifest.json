@@ -5,7 +5,8 @@
       "version": "26.2.140",
       "channel": "stable",
       "minecraft": [
-        "26.2"
+        "26.2",
+        "1.21.11"
       ],
       "notes": "DrakesPurpur 26.2 build 140 Monolith & Rust Panama FFM Hybrid Engine (Java 25 LTS)",
       "artifacts": [

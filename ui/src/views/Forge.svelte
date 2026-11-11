@@ -105,7 +105,7 @@
   <section class="card stack" aria-labelledby="f-rel">
     <h2 id="f-rel">Release del servidor</h2>
     <ReleaseCard profile={p} installable oninstalled={load} />
-    <p class="hint">Requiere un manifiesto importado en Actualizaciones. No hay aún un manifiesto oficial publicado.</p>
+    <p class="hint">Manifiesto embebido: DrakesPurpur 26.2 (build 140) con motor híbrido Rust FFM y soporte para Slimefun / StarSuites.</p>
   </section>
 
   <section class="card stack" aria-labelledby="f-sprops">

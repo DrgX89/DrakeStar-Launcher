@@ -45,8 +45,15 @@ pub struct Resolution {
     pub reason: Option<String>,
 }
 
+pub const DEFAULT_MANIFEST: &str = include_str!("../../../manifest.json");
+
 pub fn load_manifest(l: &Layout) -> Option<Manifest> {
-    Manifest::from_json(&std::fs::read_to_string(l.manifest_path()).ok()?).ok()
+    if let Ok(text) = std::fs::read_to_string(l.manifest_path()) {
+        if let Ok(m) = Manifest::from_json(&text) {
+            return Some(m);
+        }
+    }
+    Manifest::from_json(DEFAULT_MANIFEST).ok()
 }
 
 pub fn import_manifest(l: &Layout, json: &str) -> AppResult<Manifest> {
