@@ -14,6 +14,7 @@ pub mod accounts;
 pub mod assets;
 pub mod error;
 pub mod fabric;
+pub mod horizon;
 pub mod install;
 pub mod instances;
 pub mod java;

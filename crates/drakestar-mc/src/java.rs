@@ -42,6 +42,11 @@ pub fn runtime_dir(d: &Dirs, major: u32) -> PathBuf {
     d.runtimes().join(format!("java-{major}"))
 }
 
+/// Directorio del JDK (aparte del JRE: no comparten carpeta con el juego).
+pub fn jdk_dir(d: &Dirs, major: u32) -> PathBuf {
+    d.runtimes().join(format!("java-{major}-jdk"))
+}
+
 /// Ejecutable de Java dentro de un directorio de runtime (busca un nivel hacia abajo: `jdk-25+9-jre/`, `Contents/Home/`).
 pub fn find_java(home: &Path) -> Option<PathBuf> {
     let exe = if cfg!(windows) { "java.exe" } else { "java" };
@@ -96,18 +101,29 @@ fn extract_targz(archive: &Path, out: &Path) -> McResult<()> {
 
 /// Garantiza un JRE de la version mayor pedida y devuelve el ejecutable de `java`.
 pub fn ensure(d: &Dirs, major: u32, sink: &dyn ProgressSink) -> McResult<PathBuf> {
-    if let Some(j) = installed(d, major) {
+    ensure_kind(d, major, "jre", sink)
+}
+
+/// Igual, pero con JDK: lo pide `horizon-prepare` porque los exporters de
+/// Mojang corren `javac`.
+pub fn ensure_jdk(d: &Dirs, major: u32, sink: &dyn ProgressSink) -> McResult<PathBuf> {
+    ensure_kind(d, major, "jdk", sink)
+}
+
+fn ensure_kind(d: &Dirs, major: u32, kind: &str, sink: &dyn ProgressSink) -> McResult<PathBuf> {
+    let dir = if kind == "jdk" { jdk_dir(d, major) } else { runtime_dir(d, major) };
+    if let Some(j) = find_java(&dir) {
         return Ok(j);
     }
     sink.stage("java", &format!("Descargando Java {major} (solo la primera vez)"));
     let api = format!(
-        "https://api.adoptium.net/v3/assets/latest/{major}/hotspot?architecture={}&image_type=jre&os={}&vendor=eclipse",
+        "https://api.adoptium.net/v3/assets/latest/{major}/hotspot?architecture={}&image_type={kind}&os={}&vendor=eclipse",
         adoptium_arch(),
         adoptium_os()
     );
     let text = drakestar_net::fetch_text(&api)?;
     let assets: Vec<Asset> = serde_json::from_str(&text)?;
-    let pkg = assets.into_iter().next().ok_or_else(|| McError::NotFound(format!("Adoptium no tiene un JRE {major} para {} {}", adoptium_os(), adoptium_arch())))?.binary.package;
+    let pkg = assets.into_iter().next().ok_or_else(|| McError::NotFound(format!("Adoptium no tiene un {kind} {major} para {} {}", adoptium_os(), adoptium_arch())))?.binary.package;
 
     let tmp = d.runtimes().join(format!("_download-{major}"));
     let _ = std::fs::remove_dir_all(&tmp);
@@ -117,7 +133,7 @@ pub fn ensure(d: &Dirs, major: u32, sink: &dyn ProgressSink) -> McResult<PathBuf
     drakestar_net::download_verified(&pkg.link, &archive, &pkg.checksum, Some(pkg.size), |_| {})?;
     sink.fraction(0.7);
 
-    let dest = runtime_dir(d, major);
+    let dest = dir;
     let stage = tmp.join("extract");
     std::fs::create_dir_all(&stage)?;
     if pkg.name.ends_with(".zip") {
