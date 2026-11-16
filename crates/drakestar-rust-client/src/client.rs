@@ -100,20 +100,42 @@ impl From<std::io::Error> for Error {
 /// `[VarInt longitud][JSON]`, no el JSON suelto.
 fn chat_text(body: &[u8]) -> String {
     let raw = proto::read_string(&mut std::io::Cursor::new(body)).unwrap_or_else(|_| String::from_utf8_lossy(body).to_string());
-    let Ok(v) = serde_json::from_str::<Value>(&raw) else { return raw };
-    match &v {
-        Value::Object(o) => {
-            if let Some(Value::String(t)) = o.get("text") {
-                return t.clone();
-            }
-            if let Some(Value::String(t)) = o.get("translate") {
-                return format!("[{t}]");
-            }
-        }
-        Value::String(t) => return t.clone(),
-        _ => {}
+    let Ok(v) = serde_json::from_str(&raw) else { return raw };
+    let flat = chat_flat(&v);
+    if flat.is_empty() {
+        // ni texto ni extra ni translate: se muestra el JSON tal cual
+        return raw.chars().take(200).collect();
     }
-    raw.chars().take(200).collect()
+    flat
+}
+
+/// Aplana un componente de chat a texto.
+///
+/// Los servidores reales (Paper/Purpur) mandan el contenido en `extra` y dejan
+/// el `text` raiz vacio: quedarse solo con `text` devuelve un string vacio y el
+/// motivo del kick se pierde. Se une `text` + `extra[]` en orden, recursivo.
+fn chat_flat(v: &Value) -> String {
+    match v {
+        Value::String(t) => t.clone(),
+        Value::Object(o) => {
+            let mut s = String::new();
+            if let Some(t) = o.get("text").and_then(Value::as_str) {
+                s.push_str(t);
+            }
+            if let Some(extra) = o.get("extra").and_then(Value::as_array) {
+                for part in extra {
+                    s.push_str(&chat_flat(part));
+                }
+            }
+            if s.is_empty() {
+                if let Some(t) = o.get("translate").and_then(Value::as_str) {
+                    return format!("[{t}]");
+                }
+            }
+            s
+        }
+        _ => String::new(),
+    }
 }
 
 /// Conecta, hace el login y lee el flujo hasta que el servidor cierra o el
@@ -436,6 +458,20 @@ mod tests {
         assert_eq!(chat_text(br#"{"translate":"multiplayer.disconnect.kicked"}"#), "[multiplayer.disconnect.kicked]");
         assert_eq!(chat_text(b"\""), "\"");
         assert_eq!(chat_text(b"no json"), "no json");
+    }
+
+    #[test]
+    fn chat_text_joins_extra_components() {
+        // los servidores de verdad mandan el motivo del kick en `extra`, con el
+        // `text` raiz vacio: quedarse con `text` devolvia un string vacio y el
+        // motivo se perdia (salida silenciosa del cliente)
+        let mut body = Vec::new();
+        proto::write_string(&mut body, r#"{"text":"","extra":[{"text":"Servidor "},{"text":"en "},{"text":"mantencion"}]}"#);
+        assert_eq!(chat_text(&body), "Servidor en mantencion");
+        // texto raiz + extra van en orden, recursivo
+        let mut body2 = Vec::new();
+        proto::write_string(&mut body2, r#"{"text":"Hola ","extra":[{"text":"mundo","extra":[{"text":"!"}]}]}"#);
+        assert_eq!(chat_text(&body2), "Hola mundo!");
     }
 
     // ---------- cifrado online-mode, de punta a punta ----------

@@ -4,7 +4,7 @@
 //! `--login` abre el flujo de cuenta de Microsoft (device code), necesario para
 //! entrar a servidores con `online-mode=true`.
 
-use drakestar_rust_client::{auth, client::{self, Config, Error}};
+use drakestar_rust_client::{auth, client::{self, Config}};
 use std::process::ExitCode;
 
 fn usage() {
@@ -128,9 +128,9 @@ fn main() -> ExitCode {
     match client::run(&cfg, &mut |l| println!("{l}")) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            if !matches!(e, Error::Disconnected(_)) {
-                eprintln!("ERROR {e}");
-            }
+            // Tambien los kicks: el motivo del servidor es justo lo que hay
+            // que ver (si no, el jugador ve una salida silenciosa).
+            eprintln!("ERROR {e}");
             ExitCode::from(1)
         }
     }
