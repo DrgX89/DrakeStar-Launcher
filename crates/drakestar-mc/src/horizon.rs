@@ -86,17 +86,11 @@ impl Hz {
 
 // ---------- descarga ----------
 
-/// Release fijado (nightly verificado: 2026-11-13). Se mueve al manifiesto
-/// cuando Horizon publique una versión estable con la que nos quedemos.
-pub fn pinned() -> McResult<(&'static str, &'static str, u64)> {
+/// URL del paquete de binarios por plataforma.
+pub fn package_url() -> McResult<&'static str> {
     #[cfg(not(windows))]
     {
-        Ok((
-            "https://github.com/horizon-rust/horizon/releases/download/nightly/horizon-linux-x86_64.tar.gz",
-            // SHA-256 de horizon-linux-x86_64.tar.gz, del SHA256SUMS de ese nightly.
-            "83d36c5a2f8b6690d4d77411dfc3f85753319184fffe738ee5f0a4c552a0eabe",
-            55_636_015,
-        ))
+        Ok("https://github.com/horizon-rust/horizon/releases/download/nightly/horizon-linux-x86_64.tar.gz")
     }
     #[cfg(windows)]
     {
@@ -104,13 +98,41 @@ pub fn pinned() -> McResult<(&'static str, &'static str, u64)> {
     }
 }
 
+/// El nightly se sobrescribe en cada publicacion: el hash no se puede fijar
+/// (caduca en un dia). Se baja el `SHA256SUMS` que publica junto al paquete y
+/// se verifica contra ESO, como haria un repo: integridad garantizada por el
+/// editor, sin que el pin se venza.
+fn nightly_sha256(url: &str) -> McResult<String> {
+    let sums_url = url.rsplit_once('/').map(|(base, _)| format!("{base}/SHA256SUMS")).ok_or_else(|| McError::Invalid("url de Horizon sin checksums".into()))?;
+    let text = drakestar_net::fetch_text(&sums_url)?;
+    let name = url.rsplit_once('/').map(|(_, n)| n).unwrap_or("");
+    sha_in_sums(&text, name).ok_or_else(|| McError::NotFound(format!("SHA256SUMS de Horizon no trae {name}")))
+}
+
+/// Lee el hash de `name` dentro de un `SHA256SUMS` (`hash  archivo`, con el
+/// `*` opcional de binario).
+pub fn sha_in_sums(sums: &str, name: &str) -> Option<String> {
+    for line in sums.lines() {
+        let mut f = line.split_whitespace();
+        if let (Some(hash), Some(file)) = (f.next(), f.next()) {
+            if file.trim_start_matches('*') == name && hash.len() == 64 && hash.chars().all(|c| c.is_ascii_hexdigit()) {
+                return Some(hash.to_string());
+            }
+        }
+    }
+    None
+}
+
 /// Baja y verifica los binarios. El tar.gz trae cuatro; se dejan los dos que
-/// usamos. Exige SHA-256: sin hash válido no se instala.
+/// usamos. Exige SHA-256 valido (el que publica el nightly): sin hash no se
+/// instala.
 pub fn install(hz: &Hz) -> McResult<()> {
-    let (url, sha, size) = pinned()?;
+    let url = package_url()?;
+    let sha = nightly_sha256(url)?;
     std::fs::create_dir_all(hz.shared.join("bin"))?;
     let tmp = hz.shared.join("horizon.tar.gz");
-    let n = download_verified(url, &tmp, sha, Some(size), |_| {})?;
+    let _ = std::fs::remove_file(&tmp); // si quedo uno a medias de un intento fallido
+    let n = download_verified(url, &tmp, &sha, None, |_| {})?;
 
     let st = std::process::Command::new("tar")
         .arg("xzf")
@@ -362,13 +384,11 @@ mod tests {
     }
 
     #[test]
-    fn pinned_tra_hash_y_url() {
-        #[cfg(not(windows))]
-        {
-            let (url, sha, size) = pinned().unwrap();
-            assert!(url.starts_with("https://github.com/horizon-rust/horizon/releases/"));
-            assert_eq!(sha.len(), 64);
-            assert!(size > 1_000_000);
-        }
+    fn sha_del_nightly_se_lee_de_sus_sums() {
+        let sums = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  horizon-server-linux-x86_64.tar.gz\n\
+                    83d36c5a2f8b6690d4d77411dfc3f85753319184fffe738ee5f0a4c552a0eabe  horizon-linux-x86_64.tar.gz\n";
+        assert_eq!(sha_in_sums(sums, "horizon-linux-x86_64.tar.gz").as_deref(), Some("83d36c5a2f8b6690d4d77411dfc3f85753319184fffe738ee5f0a4c552a0eabe"));
+        assert_eq!(sha_in_sums(sums, "no-existe.tar.gz"), None);
+        assert_eq!(sha_in_sums("basura", "horizon-linux-x86_64.tar.gz"), None);
     }
 }

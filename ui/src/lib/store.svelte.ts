@@ -2,7 +2,7 @@
 import { api, checkUpdate, listen, type UpdateInfo } from './api';
 import { errText } from './format';
 import { setLang, t } from './i18n.svelte';
-import type { Account, AccountList, AppInfo, DeviceCode, GameState, GameStateName, Instance, MsaEvent, Progress, ReportInfo, Settings } from './types';
+import type { Account, AccountList, AppInfo, DeviceCode, GameState, GameStateName, HzStatus, Instance, MsaEvent, Progress, ReportInfo, Settings } from './types';
 
 export type View = 'play' | 'accounts' | 'instances' | 'settings' | 'logs';
 export type Phase = 'idle' | GameStateName;
@@ -31,6 +31,8 @@ class Store {
 
   update = $state<UpdateInfo | null>(null);
   updateState = $state<'idle' | 'checking' | 'none' | 'installing' | 'error'>('idle');
+  /// Estado del motor nativo (Horizon); null si el backend no lo trae.
+  hz = $state<HzStatus | null>(null);
   toasts = $state<Toast[]>([]);
   msa = $state<MsaUi>({ open: false, step: 'starting', code: null, message: '' });
 
@@ -76,6 +78,7 @@ class Store {
     }
     this.ready = true;
     this.loadVersions();
+    this.loadHorizon();
     if (this.settings?.auto_update) setTimeout(() => this.checkUpdates(false), 2500);
   }
 
@@ -189,6 +192,46 @@ class Store {
     this.report = null;
     try {
       await api.play(inst.id, this.account?.id);
+    } catch (e) {
+      this.phase = 'error';
+      this.message = errText(e);
+    }
+  }
+
+  // ---------- motor nativo (Horizon) ----------
+  /** Estado del motor: se mira al abrir la vista de jugar. */
+  async loadHorizon() {
+    try {
+      this.hz = await api.horizonStatus();
+    } catch {
+      this.hz = null; // backend viejo sin el motor: el boton no aparece
+    }
+  }
+  /** Jugar con el cliente nativo: instala si falta y lanza. */
+  async playHorizon() {
+    const inst = this.instance;
+    if (!inst || this.busy) return;
+    this.phase = 'preparing';
+    this.message = '';
+    this.exitCode = null;
+    this.warnings = [];
+    this.progress = null;
+    this.gameLines = [];
+    this.report = null;
+    try {
+      // El motor se instala si faltan los binarios; preparar los recursos ya
+      // pasa dentro de `horizon_play` (con su barra de progreso), así que el
+      // gate es solo la instalación.
+      if (this.hz === null) this.hz = await api.horizonStatus();
+      if (!this.hz.binaries) {
+        this.toast('info', t('hz.installing'));
+        await api.horizonInstall();
+        this.hz = await api.horizonStatus();
+        if (!this.hz.binaries) throw new Error(this.hz.reason ?? t('hz.not_ready'));
+      }
+      // el servidor sale de la instancia si apunta a uno
+      const server = inst.target.kind === 'server' ? inst.target.address : null;
+      await api.horizonPlay(inst.id, server);
     } catch (e) {
       this.phase = 'error';
       this.message = errText(e);
