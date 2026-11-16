@@ -56,9 +56,14 @@ pub struct Hz {
     pub home: PathBuf,
 }
 
+/// Solo la parte compartida (para instalar sin elegir instancia).
+pub fn shared_dir(d: &Dirs) -> PathBuf {
+    d.root().join("horizon")
+}
+
 pub fn paths(d: &Dirs, id: &str) -> Hz {
     Hz {
-        shared: d.root().join("horizon"),
+        shared: shared_dir(d),
         home: d.instance(id).join("horizon-home"),
     }
 }
