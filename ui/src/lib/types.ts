@@ -23,6 +23,7 @@ export interface DeviceCode {
 }
 
 export interface Progress { stage: string; text: string; fraction: number }
+export interface HzStatus { binaries: boolean; resources: boolean; java: boolean; ready: boolean; reason: string | null }
 export type GameStateName = 'preparing' | 'running' | 'exited' | 'crashed' | 'error' | 'cancelled';
 export interface GameState { state: GameStateName; message: string; code?: number | null; warnings: string[] }
 export interface MsaEvent { phase: 'working' | 'success' | 'error' | 'cancelled'; message: string; account?: Account | null }
