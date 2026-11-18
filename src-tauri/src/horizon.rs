@@ -129,7 +129,7 @@ pub fn horizon_play(app: AppHandle, st: State<'_, AppState>, instance_id: String
                 return;
             }
         }
-        let inputs = match horizon::ensure_inputs(&dirs, horizon::MC_NATIVE, &sink) {
+        let inputs = match horizon::ensure_inputs(&hz, &dirs, horizon::MC_NATIVE, &sink) {
             Ok(i) => i,
             Err(e) => {
                 support::app_log(&dirs, "ERROR", &format!("insumos de Horizon: {e}"));

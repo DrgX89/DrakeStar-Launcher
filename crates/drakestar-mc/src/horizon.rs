@@ -69,11 +69,17 @@ pub fn paths(d: &Dirs, id: &str) -> Hz {
 }
 
 impl Hz {
+    /// Carpeta del paquete de Horizon tal como se extrae: además de los
+    /// binarios trae `research-lock.json`, que `horizon-prepare` exige junto
+    /// al programa (o vía `--root`, que es lo que le pasamos).
+    pub fn pkg(&self) -> PathBuf {
+        self.shared.join("pkg")
+    }
     pub fn client(&self) -> PathBuf {
-        self.shared.join("bin").join(CLIENT_BIN)
+        self.pkg().join(CLIENT_BIN)
     }
     pub fn prepare(&self) -> PathBuf {
-        self.shared.join("bin").join(PREPARE_BIN)
+        self.pkg().join(PREPARE_BIN)
     }
     /// Los recursos preparados se comparten por versión de Minecraft.
     pub fn resources(&self) -> PathBuf {
@@ -123,39 +129,41 @@ pub fn sha_in_sums(sums: &str, name: &str) -> Option<String> {
     None
 }
 
-/// Baja y verifica los binarios. El tar.gz trae cuatro; se dejan los dos que
-/// usamos. Exige SHA-256 valido (el que publica el nightly): sin hash no se
-/// instala.
+/// Baja y verifica el paquete. Se extrae **completo** a `pkg/`: además de los
+/// binarios trae `research-lock.json`, que `horizon-prepare` necesita junto
+/// al programa (o vía `--root`, que es lo que le pasamos al preparar).
+/// Exige SHA-256 valido (el que publica el nightly): sin hash no se instala.
 pub fn install(hz: &Hz) -> McResult<()> {
     let url = package_url()?;
     let sha = nightly_sha256(url)?;
-    std::fs::create_dir_all(hz.shared.join("bin"))?;
+    std::fs::create_dir_all(&hz.shared)?;
     let tmp = hz.shared.join("horizon.tar.gz");
     let _ = std::fs::remove_file(&tmp); // si quedo uno a medias de un intento fallido
     let n = download_verified(url, &tmp, &sha, None, |_| {})?;
 
+    let pkg = hz.pkg();
+    let _ = std::fs::remove_dir_all(&pkg);
+    std::fs::create_dir_all(&pkg)?;
+    // `--strip-components=1`: el tar trae una carpeta con el nombre de la
+    // plataforma; su contenido (binarios + research-lock.json) queda en la
+    // raíz de `pkg/`, que es lo que `--root` después le pasa a preparar.
     let st = std::process::Command::new("tar")
         .arg("xzf")
         .arg(&tmp)
         .arg("-C")
-        .arg(hz.shared.join("bin"))
+        .arg(&pkg)
         .arg("--strip-components=1")
-        .arg(CLIENT_BIN)
-        .arg(PREPARE_BIN)
         .status()
         .map_err(|e| McError::Io(e))?;
     if !st.success() {
+        let _ = std::fs::remove_dir_all(&pkg);
+        let _ = std::fs::remove_file(&tmp);
         return Err(McError::Io(std::io::Error::other("falló la extracción del paquete de Horizon")));
     }
     let _ = std::fs::remove_file(&tmp);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        for b in [hz.client(), hz.prepare()] {
-            let mut perms = std::fs::metadata(&b)?.permissions();
-            perms.set_mode(0o755);
-            std::fs::set_permissions(&b, perms)?;
-        }
+    if !hz.installed() {
+        let _ = std::fs::remove_dir_all(&pkg);
+        return Err(McError::NotFound("el paquete de Horizon no trae los binarios".into()));
     }
     let _ = n;
     Ok(())
@@ -172,9 +180,76 @@ pub struct Inputs {
     pub server_jar: PathBuf,
 }
 
-/// Instala la vanilla `mc` (jar, librerías y assets compartidos, idempotente) y
-/// baja el server jar, que Horizon pide y que el camino Java no usa.
-pub fn ensure_inputs(d: &Dirs, mc: &str, sink: &dyn ProgressSink) -> McResult<Inputs> {
+/// Los pins que Horizon publica junto a sus binarios (`research-lock.json`):
+/// qué build de cada archivo del juego acepta su preparador.
+pub struct Lock {
+    /// SHA-1 de los JSON de versión que acepta (Mojang republiega la 26.3).
+    pub accepted_manifest: Vec<String>,
+    /// El fijado, para bajarlo cuando el nuestro no está en la lista.
+    pub manifest_sha1: Option<String>,
+    pub client_sha1: Option<String>,
+    pub server_sha1: Option<String>,
+    pub java_major: u32,
+}
+
+/// Lee el lock del paquete instalado. Sin lock no se puede preparar: es lo que
+/// le dice a Horizon que nuestros archivos son los que él espera.
+pub fn read_lock(hz: &Hz) -> McResult<Lock> {
+    let path = hz.pkg().join("research-lock.json");
+    let text = std::fs::read_to_string(&path).map_err(|_| McError::NotFound("el paquete de Horizon no trae research-lock.json".into()))?;
+    let v: serde_json::Value = serde_json::from_str(&text).map_err(|e| McError::Invalid(format!("research-lock.json ilegible: {e}")))?;
+    let m = v.get("minecraft").ok_or_else(|| McError::Invalid("research-lock.json sin seccion minecraft".into()))?;
+    let list = |key: &str| -> Vec<String> {
+        m.get(key)
+            .and_then(|x| x.as_array())
+            .map(|a| a.iter().filter_map(|s| s.as_str().map(String::from)).collect())
+            .unwrap_or_default()
+    };
+    Ok(Lock {
+        accepted_manifest: list("accepted_manifest_sha1"),
+        manifest_sha1: m.get("manifest_sha1").and_then(|s| s.as_str()).map(String::from),
+        client_sha1: m.get("client_sha1").and_then(|s| s.as_str()).map(String::from),
+        server_sha1: m.get("server_sha1").and_then(|s| s.as_str()).map(String::from),
+        java_major: m.get("java_major").and_then(|n| n.as_u64()).unwrap_or(PREPARE_JAVA as u64) as u32,
+    })
+}
+
+fn sha1_of(path: &Path) -> Option<String> {
+    let bytes = std::fs::read(path).ok()?;
+    use sha1::{Digest, Sha1};
+    let mut h = Sha1::new();
+    h.update(&bytes);
+    Some(bytes_to_hex(h.finalize().as_slice()))
+}
+
+fn bytes_to_hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+/// Deja en `dirs` un JSON de versión que Horizon acepta. Mojang republiega la
+/// 26.3 (cambia solo el assetIndex): si el que tenemos no está en su lista, se
+/// baja el que ellos fijan por su SHA-1.
+pub fn ensure_pinned_manifest(hz: &Hz, d: &Dirs, mc: &str, sink: &dyn ProgressSink) -> McResult<()> {
+    let lock = read_lock(hz)?;
+    let path = d.version_json(mc);
+    if let Some(h) = sha1_of(&path) {
+        if lock.accepted_manifest.contains(&h) || lock.manifest_sha1.as_deref() == Some(h.as_str()) {
+            return Ok(());
+        }
+    }
+    let sha = lock.manifest_sha1.ok_or_else(|| McError::NotFound("Horizon no fija un manifest para esa version".into()))?;
+    sink.stage("minecraft", &format!("Bajando la build de {mc} que Horizon acepta"));
+    // el hash del paquete de piston ES el sha1 de su contenido
+    let url = format!("https://piston-meta.mojang.com/v1/packages/{sha}/{mc}.json");
+    download_verified(&url, &path, &sha, None, |_| {})?;
+    Ok(())
+}
+
+/// Resuelve los insumos: deja el JSON de versión que Horizon acepta, instala la
+/// vanilla `mc` (jar, librerías y assets compartidos, idempotente) y baja el
+/// server jar, que Horizon pide y que el camino Java no usa.
+pub fn ensure_inputs(hz: &Hz, d: &Dirs, mc: &str, sink: &dyn ProgressSink) -> McResult<Inputs> {
+    ensure_pinned_manifest(hz, d, mc, sink)?;
     crate::install::install(d, mc, sink)?;
     let vjson_path = d.version_json(mc);
     let v: VersionJson =
@@ -201,11 +276,14 @@ pub fn prepare_java(d: &Dirs, sink: &dyn ProgressSink) -> McResult<PathBuf> {
 }
 
 /// Args de `horizon-prepare` (`--complete`: recursos + sonidos, falla si algo
-/// falta; es idempotente gracias a su `--check` interno).
+/// falta; es idempotente gracias a su `--check` interno). `--root` apunta a
+/// la carpeta del paquete, donde vive el `research-lock.json` con los pins.
 pub fn prepare_args(hz: &Hz, inputs: &Inputs, java_home: &Path) -> Vec<String> {
     let mut a = vec![
         "--prepare".to_string(),
         "--complete".to_string(),
+        "--root".to_string(),
+        hz.pkg().to_string_lossy().into_owned(),
         "--version-json".to_string(),
         inputs.version_json.to_string_lossy().into_owned(),
         "--client-jar".to_string(),
@@ -294,13 +372,32 @@ pub fn parse_wmctrl_window(out: &str, pid: u32) -> Option<String> {
     None
 }
 
+/// Ventana por título (el juego arranca como "Horizon"): el pid que tenemos no
+/// siempre es el de la ventana —el proceso se bifurca—, pero el título sí.
+pub fn parse_wmctrl_by_title(out: &str, title: &str) -> Option<String> {
+    let want = title.to_lowercase();
+    for line in out.lines() {
+        let f: Vec<&str> = line.split_whitespace().collect();
+        if f.len() >= 5 {
+            // f[0]=ventana, f[1]=escritorio, f[2]=pid, f[3]=host, f[4..]=título
+            let name = f[4..].join(" ").to_lowercase();
+            if name == want || name.starts_with(&format!("{want} ")) {
+                return Some(f[0].to_string());
+            }
+        }
+    }
+    None
+}
+
 /// Renombra la ventana del juego. Best-effort: si el compositor es Wayland
 /// puro, wmctrl no ve la ventana y se deja el título original.
 pub fn retitle(pid: u32, title: &str, rounds: usize, interval: Duration) -> bool {
     let mut renamed = false;
     for _ in 0..rounds.max(1) {
         if let Ok(out) = std::process::Command::new("wmctrl").arg("-lp").output() {
-            if let Some(wid) = parse_wmctrl_window(&String::from_utf8_lossy(&out.stdout), pid) {
+            let text = String::from_utf8_lossy(&out.stdout);
+            let wid = parse_wmctrl_window(&text, pid).or_else(|| parse_wmctrl_by_title(&text, "Horizon"));
+            if let Some(wid) = wid {
                 let _ = std::process::Command::new("wmctrl")
                     .args(["-i", "-r", &wid, "-T", title])
                     .status();
@@ -335,6 +432,7 @@ mod tests {
         let j = a.join(" ");
         assert!(j.contains("--prepare --complete"), "debe ser idempotente y completo: {j}");
         for f in [
+            "--root /data/horizon/pkg",
             "--version-json /data/versions/26.3/26.3.json",
             "--client-jar",
             "--libraries-dir /data/libraries",
@@ -376,11 +474,61 @@ mod tests {
     }
 
     #[test]
+    fn wmctrl_por_titulo() {
+        let out = "0x02400007  0 1234 host Horizon\n0x02c00002  0 999 otro DrakeStar\n";
+        assert_eq!(parse_wmctrl_by_title(out, "Horizon").as_deref(), Some("0x02400007"));
+        assert_eq!(parse_wmctrl_by_title(out, "DrakeStar 26.3").as_deref(), None);
+    }
+
+    #[test]
     fn wmctrl_por_pid() {
         let out = "0x02400007  0 1234 host Horizon\n0x02c00002  0 999 otro DrakeStar\n";
         assert_eq!(parse_wmctrl_window(out, 1234).as_deref(), Some("0x02400007"));
         assert_eq!(parse_wmctrl_window(out, 7), None);
         assert_eq!(parse_wmctrl_window("basura", 1), None);
+    }
+
+    #[test]
+    fn lock_del_paquete_se_lee() {
+        let dir = std::env::temp_dir().join(format!("hz-lock-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let pkg = dir.join("pkg");
+        std::fs::create_dir_all(&pkg).unwrap();
+        std::fs::write(
+            pkg.join("research-lock.json"),
+            r#"{"minecraft":{"version":"26.3","manifest_sha1":"11f1aaa","accepted_manifest_sha1":["969fbbb","4fe1ccc"],"client_sha1":"e877","server_sha1":"3368","java_major":25}}"#,
+        )
+        .unwrap();
+        let hz = Hz { shared: dir.clone(), home: dir.join("home") };
+        let lock = read_lock(&hz).unwrap();
+        assert_eq!(lock.java_major, 25);
+        assert_eq!(lock.manifest_sha1.as_deref(), Some("11f1aaa"));
+        assert_eq!(lock.accepted_manifest.len(), 2);
+        assert!(lock.accepted_manifest.contains(&"4fe1ccc".to_string()));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn manifest_que_horizon_acepta_no_se_vuelve_a_bajar() {
+        let dir = std::env::temp_dir().join(format!("hz-man-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let pkg = dir.join("pkg");
+        std::fs::create_dir_all(&pkg).unwrap();
+        let d = crate::Dirs::new(dir.join("data"));
+        std::fs::create_dir_all(d.version_dir("26.3")).unwrap();
+        let json = d.version_json("26.3");
+        std::fs::write(&json, br#"{"id":"26.3"}"#).unwrap();
+        let h = sha1_of(&json).unwrap();
+        std::fs::write(
+            pkg.join("research-lock.json"),
+            format!(r#"{{"minecraft":{{"accepted_manifest_sha1":["{h}"]}}}}"#),
+        )
+        .unwrap();
+        let hz = Hz { shared: dir.clone(), home: dir.join("home") };
+        // está en la lista: no hace falta red y no toca el archivo
+        assert!(ensure_pinned_manifest(&hz, &d, "26.3", &crate::NullSink).is_ok());
+        assert_eq!(std::fs::read(&json).unwrap(), br#"{"id":"26.3"}"#);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
