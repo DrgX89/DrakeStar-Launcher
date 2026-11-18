@@ -107,6 +107,36 @@ pub fn plan(d: &Dirs, inst: &Installed, s: &Session, o: &Options) -> McResult<Pl
 
     // JVM
     let mut jvm: Vec<String> = vec![format!("-Xmx{}M", o.xmx_mb.max(512)), format!("-Xms{}M", o.xms_mb.max(256).min(o.xmx_mb.max(512)))];
+    // Flags de Aikar (G1GC tuneado): sin ellas el juego tirotea con mods por
+    // más Sodium que le pongas. `extra_jvm` del perfil va después y puede
+    // sobreescribir cualquiera.
+    for f in [
+        "-XX:+UseG1GC",
+        "-XX:+ParallelRefProcEnabled",
+        "-XX:MaxGCPauseMillis=200",
+        "-XX:+UnlockExperimentalVMOptions",
+        "-XX:+DisableExplicitGC",
+        "-XX:+AlwaysPreTouch",
+        "-XX:G1NewSizePercent=30",
+        "-XX:G1MaxNewSizePercent=40",
+        "-XX:G1HeapRegionSize=8M",
+        "-XX:G1ReservePercent=20",
+        "-XX:G1HeapWastePercent=5",
+        "-XX:G1MixedGCCountTarget=4",
+        "-XX:InitiatingHeapOccupancyPercent=15",
+        "-XX:G1MixedGCLiveThresholdPercent=90",
+        "-XX:G1RSetUpdatingPauseTimePercent=5",
+        "-XX:SurvivorRatio=32",
+        "-XX:+PerfDisableSharedMem",
+        "-XX:G1SATBBufferEnqueueingThresholdPercent=30",
+        "-XX:G1ConcRefinementGreenInterval=0",
+        "-XX:G1ConcRefinementServiceIntervalMillis=300",
+        "-XX:+UseStringDeduplication",
+        // LWJGL moderno sobre Java 17+: sin esto hay warnings de acceso nativo
+        "--enable-native-access=ALL-UNNAMED",
+    ] {
+        jvm.push(f.to_string());
+    }
     match inst.merged.arguments.as_ref() {
         Some(a) if !a.jvm.is_empty() => {
             for arg in &a.jvm {
@@ -257,6 +287,18 @@ mod tests {
             asset_index: "17".into(),
             logging_arg: Some("-Dlog4j.configurationFile=/l.xml".into()),
         }
+    }
+
+    #[test]
+    fn plan_lleva_flags_de_aikar() {
+        let p = plan(&Dirs::new("/r"), &inst(r#"{"id":"1.21.11","mainClass":"net.minecraft.client.main.Main","minecraftArguments":"--username ${auth_player_name} --session ${auth_access_token}"}"#, vec!["/a"]), &Session::offline("Zed"), &Options { game_dir: "/g".into(), java_bin: "j".into(), xmx_mb: 4096, xms_mb: 1024, ..Default::default() }).unwrap();
+        let j = p.args.join(" ");
+        assert!(j.contains("-XX:+UseG1GC"), "{j}");
+        assert!(j.contains("-XX:MaxGCPauseMillis=200"), "{j}");
+        assert!(j.contains("-XX:+AlwaysPreTouch"), "{j}");
+        assert!(j.contains("--enable-native-access=ALL-UNNAMED"), "{j}");
+        // y extra_jvm del perfil sigue pudiendo ir después (override)
+        assert!(j.contains("-Xmx4096M"), "{j}");
     }
 
     #[test]
