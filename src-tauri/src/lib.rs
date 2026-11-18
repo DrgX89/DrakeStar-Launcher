@@ -428,6 +428,7 @@ fn open_url(app: AppHandle, url: String) -> Res<()> {
     app.opener().open_url(url, None::<&str>).map_err(s)
 }
 
+mod horizon;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -462,7 +463,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             app_info, settings_get, settings_set, accounts_list, account_add_offline, account_remove, account_set_default,
             msa_start, msa_cancel, instances_list, instance_save, instance_delete, versions_supported,
-            play, play_cancel, game_kill, logs_read, support_report, open_folder, open_url
+            play, play_cancel, game_kill, logs_read, support_report, open_folder, open_url,
+            horizon::horizon_status, horizon::horizon_install, horizon::horizon_play, horizon::horizon_stop
         ])
         .run(tauri::generate_context!())
         .expect("error al ejecutar DrakeStar");

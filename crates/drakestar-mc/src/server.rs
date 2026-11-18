@@ -146,6 +146,7 @@ pub fn plan(d: &Dirs, inst_id: &str, jar: &std::path::Path, java_bin: PathBuf, x
         program: java_bin,
         args: vec![format!("-Xmx{xmx_mb}M"), format!("-Xms{}M", (xmx_mb / 4).max(512)), "--enable-native-access=ALL-UNNAMED".into(), "-jar".into(), jar.to_string_lossy().into_owned(), "--nogui".into()],
         cwd: dir(d, inst_id),
+        envs: Default::default(),
     }
 }
 

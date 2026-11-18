@@ -1,6 +1,6 @@
 // Capa de acceso al backend. Dentro de la app usa Tauri; en el navegador (npm run dev) usa datos de ejemplo
 // para poder revisar la interfaz sin compilar Rust.
-import type { Account, AccountList, AppInfo, DeviceCode, GameState, Instance, MsaEvent, Progress, ReportInfo, Settings } from './types';
+import type { Account, AccountList, AppInfo, DeviceCode, GameState, HzStatus, Instance, MsaEvent, Progress, ReportInfo, Settings } from './types';
 
 export const inTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
@@ -43,6 +43,10 @@ export const api = {
   play: (instanceId: string, accountId?: string) => call<void>('play', { instanceId, accountId }),
   playCancel: () => call<void>('play_cancel'),
   gameKill: () => call<void>('game_kill'),
+  horizonStatus: () => call<HzStatus>('horizon_status'),
+  horizonInstall: () => call<void>('horizon_install'),
+  horizonPlay: (instanceId: string, server: string | null) => call<void>('horizon_play', { instanceId, server }),
+  horizonStop: () => call<void>('horizon_stop'),
   logs: (source: 'launcher' | 'game', instance: string | null, maxLines = 400) => call<string[]>('logs_read', { source, instance, maxLines }),
   report: (instance: string | null, send: boolean) => call<ReportInfo>('support_report', { instance, send }),
   openFolder: (kind: 'instance' | 'logs' | 'support' | 'data', id?: string) => call<void>('open_folder', { kind, id }),

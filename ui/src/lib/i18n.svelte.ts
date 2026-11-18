@@ -5,6 +5,7 @@ const es: Record<string, string> = {
   'common.retry': 'Reintentar', 'common.open_folder': 'Abrir carpeta', 'common.advanced': 'Avanzado', 'common.yes': 'Sí', 'common.no': 'No', 'common.sure': '¿Seguro?',
 
   'play.button': 'JUGAR', 'play.preparing': 'Preparando…', 'play.running': 'En juego', 'play.close_game': 'Cerrar el juego',
+  'hz.button': 'Motor nativo', 'hz.hint': 'Cliente nativo de Horizon (Minecraft 26.3). Experimental en servidores viejos.', 'hz.installing': 'Instalando el motor nativo…', 'hz.not_ready': 'El motor nativo no quedo listo.',
   'play.account': 'Jugando como', 'play.instances': 'Elige qué jugar', 'play.first_time': 'La primera vez descarga Java y los archivos del juego; puede tardar unos minutos.',
   'play.no_account_title': 'Elige cómo jugar', 'play.no_account_text': 'Necesitas una cuenta para entrar al juego.',
   'play.crashed': 'El juego se cerró con un error{code}.', 'play.error': 'No se pudo iniciar el juego.', 'play.exited': 'El juego se cerró.', 'play.cancelled': 'Cancelado.',
@@ -61,6 +62,7 @@ const en: Record<string, string> = {
   'common.retry': 'Retry', 'common.open_folder': 'Open folder', 'common.advanced': 'Advanced', 'common.yes': 'Yes', 'common.no': 'No', 'common.sure': 'Sure?',
 
   'play.button': 'PLAY', 'play.preparing': 'Preparing…', 'play.running': 'Playing', 'play.close_game': 'Close the game',
+  'hz.button': 'Native engine', 'hz.hint': 'Horizon native client (Minecraft 26.3). Experimental on old servers.', 'hz.installing': 'Installing the native engine…', 'hz.not_ready': 'The native engine did not end up ready.',
   'play.account': 'Playing as', 'play.instances': 'Choose what to play', 'play.first_time': 'The first time it downloads Java and the game files; it can take a few minutes.',
   'play.no_account_title': 'Choose how to play', 'play.no_account_text': 'You need an account to start the game.',
   'play.crashed': 'The game closed with an error{code}.', 'play.error': 'The game could not start.', 'play.exited': 'The game closed.', 'play.cancelled': 'Cancelled.',

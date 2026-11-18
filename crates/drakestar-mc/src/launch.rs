@@ -50,6 +50,8 @@ pub struct Plan {
     pub program: PathBuf,
     pub args: Vec<String>,
     pub cwd: PathBuf,
+    /// Variables de entorno del proceso (motores que las necesitan, p. ej. Horizon).
+    pub envs: BTreeMap<String, String>,
 }
 
 fn subst(s: &str, vars: &BTreeMap<&str, String>) -> String {
@@ -180,7 +182,7 @@ pub fn plan(d: &Dirs, inst: &Installed, s: &Session, o: &Options) -> McResult<Pl
     let mut args = jvm;
     args.push(main_class);
     args.extend(game);
-    Ok(Plan { program: o.java_bin.clone(), args, cwd: o.game_dir.clone() })
+    Ok(Plan { program: o.java_bin.clone(), args, cwd: o.game_dir.clone(), envs: BTreeMap::new() })
 }
 
 /// Proceso del juego en ejecucion.
@@ -212,6 +214,9 @@ pub fn spawn(
     std::fs::create_dir_all(&plan.cwd)?;
     let mut cmd = Command::new(&plan.program);
     cmd.args(&plan.args).current_dir(&plan.cwd).stdout(Stdio::piped()).stderr(Stdio::piped()).stdin(Stdio::null());
+    for (k, v) in &plan.envs {
+        cmd.env(k, v);
+    }
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;

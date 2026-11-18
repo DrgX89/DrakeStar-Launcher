@@ -65,6 +65,11 @@
           <button class="btn ghost" type="button" onclick={() => app.cancelPlay()}>{t('common.cancel')}</button>
         {:else}
           <button class="btn play" type="button" onclick={() => app.play()}>{t('play.button')}</button>
+          {#if app.hz !== null}
+            <button class="btn ghost" type="button" onclick={() => app.playHorizon()} title={t('hz.hint')}>
+              <Icon name="play" /> {t('hz.button')}
+            </button>
+          {/if}
         {/if}
       </div>
 
