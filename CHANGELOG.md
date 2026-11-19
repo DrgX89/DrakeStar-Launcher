@@ -1,8 +1,17 @@
 # Cambios
 
-## Sin publicar
+## 0.7.0 — Feature-Complete / Feature-Freeze Producción (2026-11-18)
 
-- **Servidor local gestionado**: «Slimefun en solitario / LAN» ahora usa el **monolito DrakesPurpur 26.2** del último release estable (trae Slimefun y las 9 suites; Java 25; ~95 MB la primera vez; probado: arranca en 22 s). Para versiones anteriores a 26 usa Purpur (MD5 verificado) + Slimefun4-Drake. Arranca arranca el servidor en 127.0.0.1 (o LAN), espera a que abra el puerto y entra solo con el cliente (Minecraft 1.21.11). Al cerrar el juego o el launcher el servidor se cierra. Aceptas el EULA de Mojang al jugar. Las plantillas antiguas con Fused migran solas.
+Estado oficial: **Feature-Complete (Producción & Estabilidad)**. A partir de esta versión el launcher entra en modo mantenimiento y estabilidad.
+
+**Nuevo**
+- **Modo Dual (Java + DrakesRust / Horizon 26.3)**:
+  - **Motor Java optimizado**: flags de Aikar (G1GC tuneado) inyectados automáticamente en el lanzamiento del cliente Java (PR #13).
+  - **Motor alterno DrakesRust (Horizon 26.3)**: integración nativa (, , , ) para lanzar el cliente escrito en Rust desde la misma interfaz (PR #12).
+- **Monolito Local («Slimefun en solitario / LAN»)**: descarga e inicializa el **monolito DrakesPurpur 26.2** en segundo plano (~22 s en  o LAN, Java 25, 9 suites incluidas). Al cerrar el juego o la ventana del launcher (), el proceso del servidor local se termina limpiamente () sin procesos zombis ni fugas de puertos.
+- **Cliente Rust**: lectura de componentes de chat y visualización clara del motivo de kick (PR #11).
+- **CI/CD & Seguridad**:  sincronizado a  para compilación reproducible con  (PR #15) y firma automática minisign para Windows (/), Linux (//) y macOS universal ().
+- **Validación**: 38/38 tests unitarios de  pasando en verde con .
 
 ## 0.6.0 — launcher rehecho (2026-11-12)
 
