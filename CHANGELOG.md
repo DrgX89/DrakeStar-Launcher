@@ -1,5 +1,19 @@
 # Cambios
 
+## 0.7.1 — Zero-Config, Slimefun Local Auto-Connect & Horizon JAVA_HOME fix (2026-11-19)
+
+**Arreglado**
+- **Horizon (`JAVA_HOME`)** (`5ffd2c6`): se pasa la raíz del JDK (`JAVA_HOME`) en lugar del binario `bin/java` a `horizon-prepare`, evitando fallos al preparar el motor DrakesRust / Horizon 26.3.
+- **Limpieza del servidor local**: si falla el lanzamiento (`spawn`) del cliente Java tras arrancar el servidor local, el proceso de DrakesPurpur se termina de inmediato (`sv.kill()`) sin dejar procesos huérfanos ni puertos ocupados.
+
+**Mejorado**
+- **Slimefun en solitario / LAN (QuickPlay End-to-End)**: flujo verificado de extremo a extremo — descarga/arranque del monolito DrakesPurpur (Java 25 gestionado en `127.0.0.1:<puerto>`), espera de `wait_ready`, auto-conexión del cliente vía `--quickPlayMultiplayer 127.0.0.1:<puerto>` y apagado limpio con 0 procesos huérfanos. Se añade el harness de verificación `crates/drakestar-mc/examples/monolith_play_test.rs`.
+- **Blindaje Zero-Configuration**:
+  - Descarga automática de Eclipse Temurin 17/21/25 gestionada sin requerir Java global.
+  - Generación automática de `eula=true` y `online-mode=false` para servidores locales.
+  - Límites de RAM por defecto amigables para equipos de escritorio: **3 GB cliente + 3 GB servidor local** en `slimefun-solo` (antes 8 GB cliente + 4 GB servidor) y 3 GB por defecto en nuevas instancias.
+- **CI/CD**: `Cargo.lock` sincronizado a `0.7.1` para compilación reproducible con `--locked`.
+
 ## 0.7.0 — Feature-Complete / Feature-Freeze Producción (2026-11-18)
 
 Estado oficial: **Feature-Complete (Producción & Estabilidad)**. A partir de esta versión el launcher entra en modo mantenimiento y estabilidad.

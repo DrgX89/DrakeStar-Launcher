@@ -77,7 +77,7 @@ const mockState = {
   accounts: fresh ? ({ accounts: [], default: null } as AccountList) : { accounts: [{ id: 'msa-1', kind: 'microsoft', name: 'JackStar6677', uuid: '069a79f4-44e9-4726-a5be-fca90e38aaf5', added_at: 1, last_used: 2 }, { id: 'offline-1', kind: 'offline', name: 'Invitado', uuid: 'b50ad385-829d-3141-a216-7e7d7539ba7f', added_at: 1 }], default: 'msa-1' } as AccountList,
   instances: [
     { id: 'drakescraft', name: 'DrakesCraft (online)', mc: '1.21.11', loader: 'fabric', target: { kind: 'server', address: 'mc.drakescraft.cl:25565' }, performance: true, fused: false, xmx_mb: 4096, extra_jvm: [], note: 'Entra directo al servidor oficial.' },
-    { id: 'slimefun-solo', name: 'Slimefun en solitario / LAN', mc: '1.21.1', loader: 'fabric', target: { kind: 'menu' }, performance: true, fused: true, xmx_mb: 4096, extra_jvm: [], note: 'Mundo propio con Slimefun.' },
+    { id: 'slimefun-solo', name: 'Slimefun en solitario / LAN', mc: '26.2', loader: 'fabric', target: { kind: 'local', port: 25570, lan: false }, performance: true, fused: false, xmx_mb: 3072, extra_jvm: [], note: 'Servidor propio en tu equipo con el monolito DrakesPurpur.' },
     { id: 'vanilla-latest', name: 'Minecraft vanilla', mc: '1.21.11', loader: 'vanilla', target: { kind: 'menu' }, performance: false, fused: false, xmx_mb: 3072, extra_jvm: [], note: 'Sin mods.' },
   ] as Instance[],
   settings: { language: 'es', azure_client_id: null, send_reports: true, report_endpoint: null, device_id: 'demo', last_instance: 'drakescraft', auto_update: true, first_run_done: !fresh } as Settings,

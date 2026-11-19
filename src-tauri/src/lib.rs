@@ -341,6 +341,9 @@ fn play(app: AppHandle, st: State<'_, AppState>, instance_id: String, account_id
                 emit("running", String::new(), None, prepared.warnings);
             }
             Err(e) => {
+                if let Some(sv) = st.server.lock().unwrap().take() {
+                    sv.kill();
+                }
                 support::app_log(&dirs, "ERROR", &format!("spawn: {e}"));
                 st.busy.store(false, Ordering::SeqCst);
                 emit("error", e.to_string(), None, vec![]);

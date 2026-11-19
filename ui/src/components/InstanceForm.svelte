@@ -10,7 +10,7 @@
 
   const blank = (): Instance => ({
     id: '', name: '', mc: app.versions.find((v) => v === '1.21.11') ?? app.versions[0] ?? '1.21.11', loader: 'fabric', target: { kind: 'menu' },
-    performance: true, fused: false, xmx_mb: 4096, extra_jvm: [], note: '',
+    performance: true, fused: false, xmx_mb: 3072, extra_jvm: [], note: '',
   });
 
   let draft = $state<Instance>(untrack(() => (initial ? JSON.parse(JSON.stringify(initial)) : blank())));
