@@ -131,8 +131,6 @@ pub fn plan(d: &Dirs, inst: &Installed, s: &Session, o: &Options) -> McResult<Pl
         "-XX:SurvivorRatio=32",
         "-XX:+PerfDisableSharedMem",
         "-XX:G1SATBBufferEnqueueingThresholdPercent=30",
-        "-XX:G1ConcRefinementGreenInterval=0",
-        "-XX:G1ConcRefinementServiceIntervalMillis=300",
         "-XX:+UseStringDeduplication",
         // LWJGL moderno sobre Java 17+: sin esto hay warnings de acceso nativo
         "--enable-native-access=ALL-UNNAMED",
