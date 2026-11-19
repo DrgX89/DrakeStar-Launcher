@@ -272,7 +272,13 @@ pub fn ensure_inputs(hz: &Hz, d: &Dirs, mc: &str, sink: &dyn ProgressSink) -> Mc
 
 /// El JDK que pide la preparación (no el JRE del juego).
 pub fn prepare_java(d: &Dirs, sink: &dyn ProgressSink) -> McResult<PathBuf> {
-    crate::java::ensure_jdk(d, PREPARE_JAVA, sink)
+    let exe = crate::java::ensure_jdk(d, PREPARE_JAVA, sink)?;
+    // ensure_jdk devuelve `.../bin/java(.exe)`, pero horizon-prepare espera JAVA_HOME
+    Ok(exe
+        .parent()
+        .and_then(|bin| bin.parent())
+        .map(Path::to_path_buf)
+        .unwrap_or(exe))
 }
 
 /// Args de `horizon-prepare` (`--complete`: recursos + sonidos, falla si algo
