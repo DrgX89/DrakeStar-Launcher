@@ -1,6 +1,8 @@
-# DrakeStar
+# DrakeStar (`v0.7.0` — Feature-Complete)
 
-The **DrakesCraft** Minecraft launcher. One **PLAY** button: it installs Java, the game and the mods for you and opens Minecraft **1.20 to 26.2** with a Microsoft or offline account.
+> **Status:** `Feature-Complete / Production Freeze (v0.7.0)` — Stable production launcher with automated signed CI/CD releases (`--locked` + minisign).
+
+The **DrakesCraft** Minecraft launcher. One **PLAY** button with **Dual Engine Mode** (**Java Aikar G1GC** + native **DrakesRust / Horizon 26.3**) and **Local Monolith Mode** (*Slimefun single-player / LAN* powered by DrakesPurpur 26.2 in ~22s with clean shutdown). Opens Minecraft **1.20 to 26.2** with a Microsoft or offline account.
 
 [Español](README_ES.md)
 
