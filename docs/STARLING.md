@@ -57,9 +57,10 @@ Dallas permanece en 26.2 según la orden de Jack. Esta entrega no ha consultado 
 
 Antes de ofrecerlo a jugadores:
 
-1. Preparar un servidor de laboratorio 26.2 con la misma configuración relevante y ViaVersion/ViaBackwards compatibles. La traducción de un cliente más nuevo requiere soporte explícito del protocolo 26.3; tener los plugins instalados por sí solo no lo demuestra.
+1. Preparar un servidor de laboratorio 26.2 con la misma configuración relevante y ViaVersion ≥ 5.12.0. Un cliente **más nuevo** que el servidor solo necesita ViaVersion ([tabla del README](https://github.com/ViaVersion/ViaVersion/blob/5.12.2/README.md)); ViaBackwards cubre clientes más antiguos y no interviene aquí. El soporte de clientes 26.3 llegó en [5.12.0](https://github.com/ViaVersion/ViaVersion/releases/tag/5.12.0) (protocolo 777 → servidor 26.2, protocolo 776) y [5.12.2](https://github.com/ViaVersion/ViaVersion/releases/tag/5.12.2) corrige sonidos/partículas de rotura y decoraciones de mapa 26.3→26.2. El staging season2 de Star ya trae ViaVersion/ViaBackwards 5.12.1 (20-nov-2026); estaba apagado y no se arrancó. Que ViaVersion traduzca el protocolo no demuestra que Horizon/Starling se comporte como el cliente oficial.
 2. En un Android real con APK 0.8.0, probar conexión, identidad/login, entrada al mundo, inventarios y contenedores, resource pack, cabezas Slimefun, chat y reconexión. Guardar versiones exactas y logs.
 3. Comparar con Java 26.2 en el mismo laboratorio. Comprobar anti-cheat, mecánicas y plugins que dependan de paquetes. No habilitarlo en Dallas ni anunciar compatibilidad hasta obtener evidencia.
 
 - [x] Evaluación y condiciones de prueba documentadas.
-- [ ] Prueba Android 26.3 ↔ laboratorio 26.2 con ViaVersion/ViaBackwards y resultados.
+- [x] Requisito de servidor identificado: ViaVersion ≥ 5.12.0 (recomendado 5.12.2); presente 5.12.1 en staging.
+- [ ] Prueba Android 26.3 ↔ laboratorio 26.2 con ViaVersion y resultados.
