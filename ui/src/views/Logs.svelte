@@ -9,7 +9,7 @@
   const failed = $derived(app.phase === 'error' || app.phase === 'crashed');
   const instance = $derived(app.attemptInstance ?? app.instance);
   let loadError = $state('');
-  let tab = $state<'launcher' | 'game'>('launcher');
+  let tab = $state<'launcher' | 'game'>(app.phase === 'crashed' ? 'game' : 'launcher');
   let saved = $state<string[]>([]);
   let loadRequest = 0;
   let box = $state<HTMLDivElement>();
