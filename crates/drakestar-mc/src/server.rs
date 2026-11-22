@@ -196,6 +196,10 @@ mod tests {
         let p = std::fs::read_to_string(dir(&d, "x").join("server.properties")).unwrap();
         assert!(p.contains("view-distance=16") && p.contains("online-mode=false") && p.contains("server-port=25599") && p.contains("server-ip=127.0.0.1"));
         assert_eq!(std::fs::read_to_string(dir(&d, "x").join("eula.txt")).unwrap(), "eula=true\n");
+        // Cambiar el selector a LAN reescribe server-ip vacío (todas las interfaces).
+        configure(&d, "x", 25599, true).unwrap();
+        let p = std::fs::read_to_string(dir(&d, "x").join("server.properties")).unwrap();
+        assert!(p.lines().any(|l| l == "server-ip=") && !p.contains("127.0.0.1"));
         let _ = std::fs::remove_dir_all(&t);
     }
 
