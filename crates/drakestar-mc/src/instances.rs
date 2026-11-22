@@ -125,23 +125,27 @@ impl Instances {
 
     /// Lista guardada; la primera vez crea las plantillas.
     pub fn list(&self) -> Vec<Instance> {
-        match std::fs::read_to_string(&self.path).ok().and_then(|t| serde_json::from_str::<Vec<Instance>>(&t).ok()) {
-            Some(mut v) => {
-                // la plantilla antigua de Slimefun solitario (Fused alfa en el menu) pasa al servidor local
-                if let Some(x) = v.iter_mut().find(|x| x.id == "slimefun-solo" && x.fused && x.target == Target::Menu) {
-                    if let Some(p) = presets().into_iter().find(|p| p.id == "slimefun-solo") {
-                        *x = p;
-                        let _ = self.save(&v);
-                    }
-                }
-                v
-            }
-            None => {
+        self.load().unwrap_or_default()
+    }
+
+    fn load(&self) -> McResult<Vec<Instance>> {
+        let mut v = match std::fs::read_to_string(&self.path) {
+            Ok(t) => serde_json::from_str::<Vec<Instance>>(&t)?,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
                 let p = presets();
-                let _ = self.save(&p);
-                p
+                self.save(&p)?;
+                return Ok(p);
+            }
+            Err(e) => return Err(e.into()),
+        };
+        // la plantilla antigua de Slimefun solitario (Fused alfa en el menu) pasa al servidor local
+        if let Some(x) = v.iter_mut().find(|x| x.id == "slimefun-solo" && x.fused && x.target == Target::Menu) {
+            if let Some(p) = presets().into_iter().find(|p| p.id == "slimefun-solo") {
+                *x = p;
+                self.save(&v)?;
             }
         }
+        Ok(v)
     }
 
     fn save(&self, v: &[Instance]) -> McResult<()> {
@@ -150,12 +154,12 @@ impl Instances {
     }
 
     pub fn get(&self, id: &str) -> McResult<Instance> {
-        self.list().into_iter().find(|i| i.id == id).ok_or_else(|| McError::NotFound(format!("instancia {id}")))
+        self.load()?.into_iter().find(|i| i.id == id).ok_or_else(|| McError::NotFound(format!("instancia {id}")))
     }
 
     pub fn upsert(&self, i: Instance) -> McResult<Instance> {
         i.validate()?;
-        let mut v = self.list();
+        let mut v = self.load()?;
         match v.iter_mut().find(|x| x.id == i.id) {
             Some(x) => *x = i.clone(),
             None => v.push(i.clone()),
@@ -165,7 +169,7 @@ impl Instances {
     }
 
     pub fn remove(&self, id: &str) -> McResult<()> {
-        let mut v = self.list();
+        let mut v = self.load()?;
         v.retain(|i| i.id != id);
         self.save(&v)
     }

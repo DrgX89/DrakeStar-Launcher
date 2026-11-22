@@ -1,5 +1,9 @@
 # Cambios
 
+## Sin publicar
+
+- El launcher conserva `instances.json` si está dañado o no se puede leer. Guardar, retirar o abrir una instancia devuelve el error sin reemplazar sus perfiles por plantillas.
+
 ## 0.7.1 — Zero-Config, Slimefun Local Auto-Connect & Horizon JAVA_HOME fix (2026-11-19)
 
 **Arreglado**
