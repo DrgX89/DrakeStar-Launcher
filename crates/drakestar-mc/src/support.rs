@@ -111,7 +111,7 @@ fn newest(dir: &Path, ext: &str, n: usize) -> Vec<PathBuf> {
     let mut v: Vec<(std::time::SystemTime, PathBuf)> = std::fs::read_dir(dir)
         .map(|rd| rd.flatten().filter(|e| e.path().extension().and_then(|x| x.to_str()) == Some(ext)).filter_map(|e| Some((e.metadata().ok()?.modified().ok()?, e.path()))).collect())
         .unwrap_or_default();
-    v.sort_by(|a, b| b.0.cmp(&a.0));
+    v.sort_by_key(|a| std::cmp::Reverse(a.0));
     v.into_iter().take(n).map(|x| x.1).collect()
 }
 

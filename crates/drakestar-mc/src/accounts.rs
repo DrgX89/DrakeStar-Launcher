@@ -125,7 +125,7 @@ impl Accounts {
         let mut s = self.secrets();
         s.insert(id.clone(), refresh_token.to_string());
         self.save_secrets(&s)?;
-        self.get(&id).ok_or_else(|| McError::NotFound(id))
+        self.get(&id).ok_or(McError::NotFound(id))
     }
 
     pub fn remove(&self, id: &str) -> McResult<()> {
