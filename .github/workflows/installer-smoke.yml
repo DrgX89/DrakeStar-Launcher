@@ -59,7 +59,7 @@ jobs:
           if ($p.ExitCode -ne 0) { throw "msiexec /x exit $($p.ExitCode)" }
           if (Test-Path $exe.FullName) { throw 'el ejecutable sigue tras desinstalar' }
 
-      - name: NSIS silencioso (por usuario) + desinstalar
+      - name: NSIS silencioso (/S, installMode both) + desinstalar
         shell: pwsh
         run: |
           $setup = (Get-ChildItem dl\*-setup.exe)[0].FullName
