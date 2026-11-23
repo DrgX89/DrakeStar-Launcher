@@ -65,8 +65,10 @@ jobs:
           $setup = (Get-ChildItem dl\*-setup.exe)[0].FullName
           $p = Start-Process $setup -ArgumentList '/S' -Wait -PassThru
           if ($p.ExitCode -ne 0) { throw "setup /S exit $($p.ExitCode)" }
-          $dir = "$env:LOCALAPPDATA\DrakeStar"
-          $exe = Get-ChildItem $dir -Filter *.exe -Recurse | Where-Object Name -notlike 'uninstall*' | Select-Object -First 1
+          # installMode "both": con admin (runner) puede ir a Program Files o al perfil del usuario
+          $dir = @("$env:LOCALAPPDATA\DrakeStar", "$env:LOCALAPPDATA\Programs\DrakeStar", "$env:ProgramFiles\DrakeStar") | Where-Object { Test-Path "$_\uninstall.exe" } | Select-Object -First 1
+          if (-not $dir) { Get-ChildItem $env:LOCALAPPDATA, $env:ProgramFiles -Filter drakestar*.exe -Recurse -Depth 3 -ErrorAction SilentlyContinue | ForEach-Object FullName; throw 'NSIS no dejo uninstall.exe en rutas conocidas' }
+          $exe = Get-ChildItem $dir -Filter drakestar*.exe | Select-Object -First 1
           if (-not $exe) { throw "NSIS no dejo ejecutable en $dir" }
           "instalado: $($exe.FullName) $($exe.Length)B"
           $p = Start-Process "$dir\uninstall.exe" -ArgumentList '/S' -Wait -PassThru
