@@ -29,6 +29,7 @@ jobs:
       - name: JUGAR (servidor local + cliente 26.2)
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'
+          GITHUB_TOKEN: ${{ github.token }}
           LAN: ${{ inputs.lan || '1' }}
           PERF: ${{ inputs.performance || '1' }}
         run: |
