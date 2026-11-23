@@ -114,7 +114,7 @@
         {/each}
       </div>
     </section>
-  {:else}
+  {:else if !app.instancesError}
     <p class="muted">{t('play.no_instances')}</p>
   {/if}
 </div>

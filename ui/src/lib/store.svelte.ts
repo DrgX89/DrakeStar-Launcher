@@ -18,6 +18,8 @@ class Store {
   settings = $state<Settings | null>(null);
   accounts = $state<AccountList>({ accounts: [], default: null });
   instances = $state<Instance[]>([]);
+  instancesError = $state<string | null>(null);
+  instancesLoading = $state(false);
   versions = $state<string[]>([]);
   selected = $state<string | null>(null);
 
@@ -39,6 +41,7 @@ class Store {
   private nextToast = 1;
 
   get instance(): Instance | null {
+    if (this.instancesError) return null;
     return this.instances.find((i) => i.id === this.selected) ?? this.instances[0] ?? null;
   }
   get account(): Account | null {
@@ -85,8 +88,20 @@ class Store {
   async loadAccounts() {
     this.accounts = await api.accounts();
   }
-  async loadInstances() {
-    this.instances = await api.instances();
+  async loadInstances(): Promise<boolean> {
+    this.instancesLoading = true;
+    try {
+      this.instances = await api.instances();
+      this.instancesError = null;
+      return true;
+    } catch (e) {
+      this.instances = [];
+      this.selected = null;
+      this.instancesError = errText(e);
+      return false;
+    } finally {
+      this.instancesLoading = false;
+    }
   }
   async loadVersions() {
     try { this.versions = await api.versions(); } catch { /* sin red: el formulario deja escribir la version a mano */ }
@@ -155,7 +170,7 @@ class Store {
   async saveInstance(i: Instance): Promise<string | null> {
     try {
       const saved = await api.saveInstance(i);
-      await this.loadInstances();
+      if (!await this.loadInstances()) return this.instancesError;
       this.selected = saved.id;
       return null;
     } catch (e) {

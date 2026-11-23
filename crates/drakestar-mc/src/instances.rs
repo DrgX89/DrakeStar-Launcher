@@ -124,8 +124,14 @@ impl Instances {
     }
 
     /// Lista guardada; la primera vez crea las plantillas.
+    /// Para distinguir un catálogo vacío de un error, usa `try_list`.
     pub fn list(&self) -> Vec<Instance> {
-        self.load().unwrap_or_default()
+        self.try_list().unwrap_or_default()
+    }
+
+    /// Lista guardada sin ocultar errores de lectura, formato o migración.
+    pub fn try_list(&self) -> McResult<Vec<Instance>> {
+        self.load()
     }
 
     fn load(&self) -> McResult<Vec<Instance>> {

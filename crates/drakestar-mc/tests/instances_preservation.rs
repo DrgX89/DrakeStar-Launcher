@@ -62,6 +62,28 @@ fn listing_preserves_truncated_catalog() {
 }
 
 #[test]
+fn fallible_listing_distinguishes_empty_corrupt_and_unreadable_catalogs() {
+    let f = Fixture::new();
+    fs::write(f.path(), b"[]").unwrap();
+    assert!(f.store().try_list().unwrap().is_empty());
+
+    fs::write(f.path(), DAMAGED).unwrap();
+    assert!(f.store().try_list().is_err());
+    assert_eq!(fs::read(f.path()).unwrap(), DAMAGED);
+
+    let invalid_utf8 = [0xff, 0xfe];
+    fs::write(f.path(), invalid_utf8).unwrap();
+    assert!(f.store().try_list().is_err());
+    assert_eq!(fs::read(f.path()).unwrap(), invalid_utf8);
+
+    fs::remove_file(f.path()).unwrap();
+    fs::create_dir(f.path()).unwrap();
+    fs::write(f.path().join("sentinel"), b"keep").unwrap();
+    assert!(f.store().try_list().is_err());
+    assert_eq!(fs::read(f.path().join("sentinel")).unwrap(), b"keep");
+}
+
+#[test]
 fn upsert_rejects_and_preserves_truncated_catalog() {
     let f = Fixture::new();
     fs::write(f.path(), DAMAGED).unwrap();
@@ -97,7 +119,7 @@ fn invalid_utf8_catalog_is_preserved() {
 #[test]
 fn absent_catalog_creates_valid_presets() {
     let f = Fixture::new();
-    let entries = f.store().list();
+    let entries = f.store().try_list().unwrap();
     assert_eq!(entries.len(), 3);
     for entry in &entries {
         entry.validate().unwrap();

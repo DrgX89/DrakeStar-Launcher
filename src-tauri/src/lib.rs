@@ -189,8 +189,8 @@ fn msa_cancel(st: State<'_, AppState>) {
 
 // ---------- instancias ----------
 #[tauri::command]
-fn instances_list(st: State<'_, AppState>) -> Vec<Instance> {
-    Instances::new(&st.dirs).list()
+fn instances_list(st: State<'_, AppState>) -> Res<Vec<Instance>> {
+    Instances::new(&st.dirs).try_list().map_err(s)
 }
 #[tauri::command]
 fn instance_save(st: State<'_, AppState>, instance: Instance) -> Res<Instance> {

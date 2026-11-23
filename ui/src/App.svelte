@@ -4,6 +4,8 @@
   import MsaModal from './components/MsaModal.svelte';
   import Toasts from './components/Toasts.svelte';
   import Welcome from './components/Welcome.svelte';
+  import { api } from './lib/api';
+  import { errText } from './lib/format';
   import { t } from './lib/i18n.svelte';
   import { app, type View } from './lib/store.svelte';
   import Accounts from './views/Accounts.svelte';
@@ -49,6 +51,20 @@
     {/if}
 
     {#if app.ready}
+      {#if app.instancesError && (app.view === 'play' || app.view === 'instances')}
+        <div class="banner" role="alert" style="align-items:flex-start">
+          <Icon name="alert" />
+          <div class="stack grow" style="gap:8px; min-width:0">
+            <strong>{t('ins.load_error')}</strong>
+            <p class="small">{t('ins.load_error_hint')}</p>
+            <p class="small" style="overflow-wrap:anywhere">{app.instancesError}</p>
+            <div class="row">
+              <button class="btn sm" type="button" disabled={app.instancesLoading} onclick={() => app.loadInstances()}>{t('common.retry')}</button>
+              <button class="btn sm" type="button" onclick={() => api.openFolder('data').catch((e) => app.toast('error', errText(e)))}><Icon name="folder" /> {t('set.open_data')}</button>
+            </div>
+          </div>
+        </div>
+      {/if}
       {#if app.view === 'play'}<Play />
       {:else if app.view === 'accounts'}<Accounts />
       {:else if app.view === 'instances'}<Instances />
