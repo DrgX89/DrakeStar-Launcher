@@ -10,6 +10,8 @@ on:
       tag:
         description: 'Etiqueta a probar (vacio = latest)'
         required: false
+  pull_request:
+    paths: ['.github/workflows/installer-smoke.yml', 'tools/verify_updater_release.py']
 
 permissions:
   contents: read
@@ -40,7 +42,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.tag || github.event.release.tag_name }}
-        run: gh release download $TAG -R "$GITHUB_REPOSITORY" -p '*.msi' -p '*-setup.exe' -D dl && ls -l dl
+        run: |
+          TAG=${TAG:-$(gh release view -R "$GITHUB_REPOSITORY" --json tagName -q .tagName)}
+          gh release download $TAG -R "$GITHUB_REPOSITORY" -p '*.msi' -p '*-setup.exe' -D dl && ls -l dl
 
       - name: MSI silencioso (por maquina) + desinstalar
         shell: pwsh
