@@ -411,15 +411,25 @@ async fn support_report(st: State<'_, AppState>, instance: Option<String>, send:
     .map_err(s)?
 }
 
-#[tauri::command]
-fn open_folder(app: AppHandle, st: State<'_, AppState>, kind: String, id: Option<String>) -> Res<()> {
-    let path = match (kind.as_str(), id) {
-        ("instance", Some(id)) if safe_id(&id) => st.dirs.instance(&id),
-        ("logs", _) => support::log_dir(&st.dirs),
-        ("support", _) => st.dirs.root().join("support"),
-        _ => st.dirs.root().to_path_buf(),
+/// Carpeta a abrir; una instancia debe existir (no se crean carpetas huérfanas ni se cae a la raíz con un id inválido).
+fn folder_path(dirs: &Dirs, kind: &str, id: Option<&str>) -> Res<std::path::PathBuf> {
+    let path = match (kind, id) {
+        ("instance", Some(id)) if safe_id(id) => {
+            let p = dirs.instance(id);
+            return if p.is_dir() { Ok(p) } else { Err(format!("la instancia '{id}' no existe")) };
+        }
+        ("instance", _) => return Err("id de instancia inválido".into()),
+        ("logs", _) => support::log_dir(dirs),
+        ("support", _) => dirs.root().join("support"),
+        _ => dirs.root().to_path_buf(),
     };
     std::fs::create_dir_all(&path).map_err(s)?;
+    Ok(path)
+}
+
+#[tauri::command]
+fn open_folder(app: AppHandle, st: State<'_, AppState>, kind: String, id: Option<String>) -> Res<()> {
+    let path = folder_path(&st.dirs, &kind, id.as_deref())?;
     app.opener().open_path(path.to_string_lossy().to_string(), None::<&str>).map_err(s)
 }
 
@@ -471,4 +481,23 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error al ejecutar DrakeStar");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn folder_path_no_crea_instancias_ni_cae_a_la_raiz() {
+        let tmp = std::env::temp_dir().join(format!("dsl-folder-{}", std::process::id()));
+        let dirs = Dirs::new(tmp.clone());
+        assert!(folder_path(&dirs, "instance", Some("fantasma")).is_err());
+        assert!(!dirs.instance("fantasma").exists());
+        assert!(folder_path(&dirs, "instance", Some("../x")).is_err());
+        assert!(folder_path(&dirs, "instance", None).is_err());
+        std::fs::create_dir_all(dirs.instance("t2")).unwrap();
+        assert_eq!(folder_path(&dirs, "instance", Some("t2")).unwrap(), dirs.instance("t2"));
+        assert!(folder_path(&dirs, "support", None).unwrap().is_dir());
+        let _ = std::fs::remove_dir_all(tmp);
+    }
 }
