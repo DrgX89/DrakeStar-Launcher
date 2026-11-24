@@ -41,6 +41,72 @@ try {
     });
   }
 
+  for (const order of ['old-first', 'new-first']) {
+    for (const previousOutcome of ['success', 'error']) {
+      for (const currentOutcome of ['success', 'error']) {
+        await test(`catalogo concurrente ${order}/${previousOutcome}/${currentOutcome}: conserva la ultima lectura`, async () => {
+          reset();
+          const finish = [];
+          api.instances = () => new Promise((resolve, reject) => finish.push({ resolve, reject }));
+          let oldSettled = false;
+          const old = app.loadInstances().then((result) => { oldSettled = true; return result; });
+          const current = app.loadInstances();
+          const complete = (index, outcome) => outcome === 'success'
+            ? finish[index].resolve([{ ...first, name: index === 0 ? 'Obsolete profile' : 'Current profile' }])
+            : finish[index].reject(new Error(index === 0 ? 'Obsolete read error' : 'Current read error'));
+          if (order === 'old-first') {
+            complete(0, previousOutcome);
+            await Promise.resolve();
+            await Promise.resolve();
+            assert.equal(app.instancesLoading, true);
+            assert.equal(app.instancesError, null);
+            assert.equal(app.instances.length, 2);
+            assert.equal(oldSettled, false);
+          }
+          complete(1, currentOutcome);
+          const currentResult = await current;
+          if (order === 'new-first') complete(0, previousOutcome);
+          assert.equal(await old, currentResult);
+          assert.equal(currentResult, currentOutcome === 'success');
+          assert.equal(app.instancesLoading, false);
+          if (currentOutcome === 'success') {
+            assert.equal(app.instancesError, null);
+            assert.equal(app.instances[0].name, 'Current profile');
+            assert.equal(app.selected, 'second');
+          } else {
+            assert.equal(app.instancesError, 'Current read error');
+            assert.equal(app.instances.length, 0);
+            assert.equal(app.selected, null);
+          }
+        });
+      }
+    }
+  }
+
+  await test('guardar espera el resultado de la lectura vigente si su refresco fue reemplazado', async () => {
+    reset();
+    const saved = { ...first, id: 'saved', name: 'Saved profile' };
+    api.saveInstance = async () => saved;
+    const finish = [];
+    api.instances = () => new Promise((resolve, reject) => finish.push({ resolve, reject }));
+    let saveSettled = false;
+    const saving = app.saveInstance(saved).then((result) => { saveSettled = true; return result; });
+    await Promise.resolve();
+    assert.equal(finish.length, 1);
+    const refresh = app.loadInstances();
+    finish[0].reject(new Error('Obsolete refresh error'));
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.equal(saveSettled, false);
+    assert.equal(app.instancesError, null);
+    finish[1].resolve([saved]);
+    assert.equal(await refresh, true);
+    assert.equal(await saving, null);
+    assert.equal(app.selected, 'saved');
+    assert.equal(app.recoveryInstance, null);
+    assert.equal(app.instance.name, 'Saved profile');
+  });
+
   await test('Horizon conserva la instancia intentada aunque cambie la seleccion', async () => {
     reset();
     api.horizonPlay = async (id, server) => {
