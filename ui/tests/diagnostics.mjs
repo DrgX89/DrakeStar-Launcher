@@ -38,8 +38,252 @@ try {
       attemptInstance: first, failedStage: 'Previous attempt',
       message: 'Previous error', exitCode: 9, progress: null,
       gameLines: ['Previous output'], warnings: ['Previous warning'], report: null,
+      msa: { open: false, step: 'starting', code: null, message: '' },
     });
   }
+
+  const originalAccount = { id: 'original', kind: 'offline', name: 'Original', uuid: 'synthetic-original', added_at: 1 };
+  const currentAccount = { ...originalAccount, id: 'current', name: 'Current', uuid: 'synthetic-current' };
+  const deviceCode = (user_code) => ({ user_code, verification_uri: 'https://example.invalid', expires_in: 600, interval: 5 });
+  for (const stage of ['cancel', 'start']) {
+    await test(`Microsoft: error vigente durante ${stage} sigue visible y permite reintentar`, async () => {
+      reset();
+      let fail = true;
+      api.msaCancel = async () => { if (fail && stage === 'cancel') throw new Error('Current authentication error'); };
+      api.msaStart = async () => {
+        if (fail) throw new Error('Current authentication error');
+        return deviceCode('RETRY');
+      };
+      await app.startMsa();
+      assert.equal(app.msa.open, true);
+      assert.equal(app.msa.step, 'error');
+      assert.equal(app.msa.message, 'Current authentication error');
+      fail = false;
+      await app.startMsa();
+      assert.equal(app.msa.open, true);
+      assert.equal(app.msa.step, 'waiting');
+      assert.equal(app.msa.code.user_code, 'RETRY');
+      assert.equal(app.msa.message, '');
+    });
+  }
+  for (const stage of ['cancel', 'start']) {
+    for (const outcome of ['success', 'error']) {
+      await test(`Microsoft: cancelar durante ${stage}/${outcome} mantiene cerrado el dialogo`, async () => {
+        reset();
+        let finish;
+        let starts = 0;
+        const pending = new Promise((resolve, reject) => { finish = { resolve, reject }; });
+        let cancels = 0;
+        api.msaCancel = () => ++cancels === 1 && stage === 'cancel' ? pending : Promise.resolve();
+        api.msaStart = () => { starts++; return stage === 'start' ? pending : Promise.resolve(deviceCode('OLD')); };
+        const attempt = app.startMsa();
+        await Promise.resolve();
+        if (stage === 'start') assert.equal(starts, 1);
+        await app.cancelMsa();
+        const closed = { ...app.msa };
+        if (outcome === 'success') finish.resolve(deviceCode('OLD'));
+        else finish.reject(new Error('Obsolete device code error'));
+        await attempt;
+        assert.deepEqual(app.msa, closed);
+        assert.equal(app.msa.open, false);
+        assert.equal(starts, stage === 'cancel' ? 0 : 1);
+      });
+    }
+  }
+  for (const order of ['old-first', 'new-first']) {
+    for (const outcome of ['success', 'error']) {
+      await test(`Microsoft: intento anterior ${order}/${outcome} no pisa el codigo vigente`, async () => {
+        reset();
+        const finish = [];
+        api.msaCancel = async () => {};
+        api.msaStart = () => new Promise((resolve, reject) => finish.push({ resolve, reject }));
+        const old = app.startMsa();
+        await Promise.resolve();
+        const current = app.startMsa();
+        await Promise.resolve();
+        assert.equal(finish.length, 2);
+        const settleOld = () => outcome === 'success'
+          ? finish[0].resolve(deviceCode('OLD'))
+          : finish[0].reject(new Error('Obsolete device code error'));
+        if (order === 'old-first') {
+          settleOld();
+          await old;
+          assert.equal(app.msa.step, 'starting');
+          assert.equal(app.msa.code, null);
+        }
+        finish[1].resolve(deviceCode('CURRENT'));
+        await current;
+        if (order === 'new-first') { settleOld(); await old; }
+        assert.equal(app.msa.open, true);
+        assert.equal(app.msa.step, 'waiting');
+        assert.equal(app.msa.code.user_code, 'CURRENT');
+        assert.equal(app.msa.message, '');
+      });
+    }
+  }
+  for (const outcome of ['success', 'error']) {
+    await test(`Microsoft: el refresco de cuentas ${outcome} termina con diagnostico`, async () => {
+      reset();
+      app.accounts = { accounts: [originalAccount], default: originalAccount.id };
+      app.msa.open = true;
+      const toasts = [];
+      app.toast = (...args) => toasts.push(args);
+      api.accounts = async () => {
+        if (outcome === 'error') throw new Error('Account refresh unavailable');
+        return { accounts: [currentAccount], default: currentAccount.id };
+      };
+      app.onMsa({ phase: 'success', message: 'Session authenticated' });
+      await new Promise((resolve) => setImmediate(resolve));
+      assert.equal(app.msa.open, false);
+      assert.equal(app.account.id, outcome === 'success' ? 'current' : 'original');
+      assert.deepEqual(toasts, outcome === 'success'
+        ? [['ok', 'Session authenticated']]
+        : [['ok', 'Session authenticated'], ['error', 'Account refresh unavailable']]);
+    });
+  }
+
+  await test('Microsoft: el evento de una ventana cerrada no refresca cuentas', async () => {
+    reset();
+    let reads = 0;
+    const toasts = [];
+    app.toast = (...args) => toasts.push(args);
+    api.accounts = async () => { reads++; return { accounts: [], default: null }; };
+    app.onMsa({ phase: 'success', message: 'Ignored authentication event' });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(reads, 0);
+    assert.deepEqual(toasts, []);
+  });
+
+  for (const order of ['old-first', 'new-first']) {
+    for (const previousOutcome of ['success', 'error']) {
+      for (const currentOutcome of ['success', 'error']) {
+        await test(`cuentas concurrentes ${order}/${previousOutcome}/${currentOutcome}: conserva la ultima lectura`, async () => {
+          reset();
+          app.accounts = { accounts: [originalAccount], default: originalAccount.id };
+          const finish = [];
+          api.accounts = () => new Promise((resolve, reject) => finish.push({ resolve, reject }));
+          let oldSettled = false;
+          const result = (promise) => promise.then(() => null, (e) => e.message);
+          const old = result(app.loadAccounts()).then((value) => { oldSettled = true; return value; });
+          const current = result(app.loadAccounts());
+          const complete = (index, outcome) => outcome === 'success'
+            ? finish[index].resolve({ accounts: [index === 0 ? originalAccount : currentAccount], default: index === 0 ? originalAccount.id : currentAccount.id })
+            : finish[index].reject(new Error(index === 0 ? 'Obsolete account error' : 'Current account error'));
+          let settledBeforeCurrent = false;
+          if (order === 'old-first') {
+            complete(0, previousOutcome);
+            for (let i = 0; i < 5; i++) await Promise.resolve();
+            settledBeforeCurrent = oldSettled;
+          }
+          complete(1, currentOutcome);
+          const currentResult = await current;
+          if (order === 'new-first') complete(0, previousOutcome);
+          const oldResult = await old;
+          assert.equal(oldResult, currentResult);
+          if (order === 'old-first') assert.equal(settledBeforeCurrent, false);
+          assert.equal(currentResult, currentOutcome === 'success' ? null : 'Current account error');
+          assert.equal(app.account.id, currentOutcome === 'success' ? 'current' : 'original');
+        });
+      }
+    }
+  }
+
+  for (const operation of ['remove', 'select']) {
+    await test(`cuentas: ${operation} no se revierte por una lista anterior`, async () => {
+      reset();
+      app.accounts = { accounts: [originalAccount, currentAccount], default: originalAccount.id };
+      const finish = [];
+      api.accounts = () => new Promise((resolve, reject) => finish.push({ resolve, reject }));
+      const old = app.loadAccounts();
+      api.removeAccount = async (id) => assert.equal(id, originalAccount.id);
+      api.setDefaultAccount = async (id) => assert.equal(id, currentAccount.id);
+      const mutation = operation === 'remove' ? app.removeAccount(originalAccount.id) : app.useAccount(currentAccount.id);
+      await Promise.resolve();
+      finish[1].resolve({ accounts: operation === 'remove' ? [currentAccount] : [originalAccount, currentAccount], default: currentAccount.id });
+      await mutation;
+      finish[0].resolve({ accounts: [originalAccount, currentAccount], default: originalAccount.id });
+      await old;
+      assert.equal(app.account.id, currentAccount.id);
+      assert.equal(app.accounts.accounts.length, operation === 'remove' ? 1 : 2);
+    });
+  }
+
+  await test('cuentas: error vigente se propaga y permite reintentar sin perder la lista anterior', async () => {
+    reset();
+    app.accounts = { accounts: [originalAccount], default: originalAccount.id };
+    api.accounts = async () => { throw new Error('Current account error'); };
+    await assert.rejects(app.loadAccounts(), /Current account error/);
+    assert.equal(app.account.id, originalAccount.id);
+    api.accounts = async () => ({ accounts: [currentAccount], default: currentAccount.id });
+    await app.loadAccounts();
+    assert.equal(app.account.id, currentAccount.id);
+  });
+
+  for (const order of ['old-first', 'new-first']) {
+    for (const previousOutcome of ['success', 'error']) {
+      for (const currentOutcome of ['success', 'error']) {
+        await test(`catalogo concurrente ${order}/${previousOutcome}/${currentOutcome}: conserva la ultima lectura`, async () => {
+          reset();
+          const finish = [];
+          api.instances = () => new Promise((resolve, reject) => finish.push({ resolve, reject }));
+          let oldSettled = false;
+          const old = app.loadInstances().then((result) => { oldSettled = true; return result; });
+          const current = app.loadInstances();
+          const complete = (index, outcome) => outcome === 'success'
+            ? finish[index].resolve([{ ...first, name: index === 0 ? 'Obsolete profile' : 'Current profile' }])
+            : finish[index].reject(new Error(index === 0 ? 'Obsolete read error' : 'Current read error'));
+          if (order === 'old-first') {
+            complete(0, previousOutcome);
+            await Promise.resolve();
+            await Promise.resolve();
+            assert.equal(app.instancesLoading, true);
+            assert.equal(app.instancesError, null);
+            assert.equal(app.instances.length, 2);
+            assert.equal(oldSettled, false);
+          }
+          complete(1, currentOutcome);
+          const currentResult = await current;
+          if (order === 'new-first') complete(0, previousOutcome);
+          assert.equal(await old, currentResult);
+          assert.equal(currentResult, currentOutcome === 'success');
+          assert.equal(app.instancesLoading, false);
+          if (currentOutcome === 'success') {
+            assert.equal(app.instancesError, null);
+            assert.equal(app.instances[0].name, 'Current profile');
+            assert.equal(app.selected, 'second');
+          } else {
+            assert.equal(app.instancesError, 'Current read error');
+            assert.equal(app.instances.length, 0);
+            assert.equal(app.selected, null);
+          }
+        });
+      }
+    }
+  }
+
+  await test('guardar espera el resultado de la lectura vigente si su refresco fue reemplazado', async () => {
+    reset();
+    const saved = { ...first, id: 'saved', name: 'Saved profile' };
+    api.saveInstance = async () => saved;
+    const finish = [];
+    api.instances = () => new Promise((resolve, reject) => finish.push({ resolve, reject }));
+    let saveSettled = false;
+    const saving = app.saveInstance(saved).then((result) => { saveSettled = true; return result; });
+    await Promise.resolve();
+    assert.equal(finish.length, 1);
+    const refresh = app.loadInstances();
+    finish[0].reject(new Error('Obsolete refresh error'));
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.equal(saveSettled, false);
+    assert.equal(app.instancesError, null);
+    finish[1].resolve([saved]);
+    assert.equal(await refresh, true);
+    assert.equal(await saving, null);
+    assert.equal(app.selected, 'saved');
+    assert.equal(app.recoveryInstance, null);
+    assert.equal(app.instance.name, 'Saved profile');
+  });
 
   await test('Horizon conserva la instancia intentada aunque cambie la seleccion', async () => {
     reset();

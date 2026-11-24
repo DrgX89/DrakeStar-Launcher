@@ -43,7 +43,12 @@ class Store {
   msa = $state<MsaUi>({ open: false, step: 'starting', code: null, message: '' });
 
   private nextToast = 1;
+  private msaRequest = 0;
   private reportRequest = 0;
+  private accountsRequest = 0;
+  private accountsRead: Promise<void> = Promise.resolve();
+  private instancesRequest = 0;
+  private instancesRead: Promise<boolean> = Promise.resolve(false);
 
   get instance(): Instance | null {
     if (this.instancesError) return null;
@@ -96,22 +101,43 @@ class Store {
     if (this.settings?.auto_update) setTimeout(() => this.checkUpdates(false), 2500);
   }
 
-  async loadAccounts() {
-    this.accounts = await api.accounts();
+  loadAccounts(): Promise<void> {
+    const request = ++this.accountsRequest;
+    this.accountsRead = this.readAccounts(request);
+    return this.accountsRead;
   }
-  async loadInstances(): Promise<boolean> {
-    this.instancesLoading = true;
+  private async readAccounts(request: number): Promise<void> {
     try {
-      this.instances = await api.instances();
+      const accounts = await api.accounts();
+      if (request !== this.accountsRequest) return this.accountsRead;
+      this.accounts = accounts;
+    } catch (e) {
+      if (request !== this.accountsRequest) return this.accountsRead;
+      throw e;
+    }
+  }
+  loadInstances(): Promise<boolean> {
+    const request = ++this.instancesRequest;
+    this.instancesLoading = true;
+    this.instancesRead = this.readInstances(request);
+    return this.instancesRead;
+  }
+  private async readInstances(request: number): Promise<boolean> {
+    try {
+      const instances = await api.instances();
+      // Un guardado que esperaba esta lectura necesita el resultado vigente.
+      if (request !== this.instancesRequest) return this.instancesRead;
+      this.instances = instances;
       this.instancesError = null;
       return true;
     } catch (e) {
+      if (request !== this.instancesRequest) return this.instancesRead;
       this.instances = [];
       this.selected = null;
       this.instancesError = errText(e);
       return false;
     } finally {
-      this.instancesLoading = false;
+      if (request === this.instancesRequest) this.instancesLoading = false;
     }
   }
   async loadVersions() {
@@ -150,16 +176,21 @@ class Store {
   }
 
   async startMsa() {
+    const request = ++this.msaRequest;
     this.msa = { open: true, step: 'starting', code: null, message: '' };
     try {
       await api.msaCancel();
+      if (request !== this.msaRequest) return;
       const code = await api.msaStart();
+      if (request !== this.msaRequest) return;
       this.msa = { open: true, step: 'waiting', code, message: '' };
     } catch (e) {
+      if (request !== this.msaRequest) return;
       this.msa = { open: true, step: 'error', code: null, message: errText(e) };
     }
   }
   async cancelMsa() {
+    this.msaRequest++;
     this.msa.open = false;
     try { await api.msaCancel(); } catch { /* ya terminado */ }
   }
@@ -168,7 +199,7 @@ class Store {
     if (m.phase === 'working') this.msa = { ...this.msa, step: 'working', message: m.message };
     else if (m.phase === 'success') {
       this.msa.open = false;
-      this.loadAccounts();
+      this.loadAccounts().catch((e) => this.toast('error', errText(e)));
       this.toast('ok', m.message);
     } else if (m.phase === 'error') this.msa = { ...this.msa, step: 'error', message: m.message };
     else this.msa.open = false;

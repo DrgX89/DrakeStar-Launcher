@@ -28,12 +28,22 @@ sobre su configuración actual, aunque se haya seleccionado otra; no restaura
 el perfil antiguo del intento. Si se borró la instancia o no se puede leer el
 catálogo, la recuperación no modifica otro perfil.
 
+Si coinciden varias lecturas del catálogo de instancias, solo la última cambia
+los perfiles y el error visible. Guardar espera ese resultado vigente; una
+respuesta antigua no restaura perfiles ni oculta una lectura aún pendiente.
+
 Los reportes manuales pendientes dejan de actualizar el diagnóstico al iniciar
 otra partida, incluso si se reintenta la misma instancia. Si se solicitan varios,
 solo la última solicitud muestra su resultado o error. Esto no cancela un envío
 que el backend ya haya iniciado.
 
 ## Conservación ante errores de persistencia
+
+Las lecturas concurrentes de cuentas solo muestran el listado y la cuenta
+seleccionada de la última solicitud. Una respuesta o error antiguo no revierte
+una selección ni vuelve a mostrar una cuenta retirada. Si falla la lectura
+vigente, se propaga el error y se conserva la lista anterior para reintentar;
+esto no cambia las credenciales ni la persistencia del backend.
 
 Las mutaciones de cuentas rechazan JSON ilegible o dañado antes de escribir.
 Si falla la escritura del listado después de guardar credenciales, se restauran

@@ -46,10 +46,13 @@ npm run dev                     # UI in the browser with sample data (?fresh = f
 cd .. && ui/node_modules/.bin/tauri dev      # the full app
 cargo test -p drakestar-mc      # engine (downloads, Java, launching, accounts, logs)
 (cd ui && npm run build)        # svelte-check + vite build
+(cd ui && npx playwright install chromium && npm run test:catalog) # catalog UI races in Chromium
 cargo run -p drakestar-mc --example play_test -- 1.21.11 vanilla 60   # real launch test
 ```
 
 `DRAKESTAR_DATA_DIR` changes the data folder.
+
+The catalog browser tests use synthetic API responses with delayed reads and installs/removals. They check the Svelte UI, including Spanish and English at 375 px; they do not download content or exercise native Tauri IPC.
 
 ## License
 
