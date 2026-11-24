@@ -8,8 +8,9 @@
     "predev": "npm run sync-brand",
     "dev": "vite",
     "prebuild": "npm run sync-brand",
-    "build": "svelte-check --tsconfig ./tsconfig.json && vite build",
+    "build": "svelte-check --tsconfig ./tsconfig.json && npm run test:diagnostics && vite build",
     "check": "svelte-check --tsconfig ./tsconfig.json",
+    "test:diagnostics": "node tests/diagnostics.mjs",
     "preview": "vite preview",
     "tauri": "tauri"
   },

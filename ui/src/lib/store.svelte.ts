@@ -218,9 +218,7 @@ class Store {
     try {
       await api.play(inst.id, this.account?.id);
     } catch (e) {
-      this.phase = 'error';
-      this.message = errText(e);
-      this.view = 'logs';
+      this.onGameState({ state: 'error', message: errText(e), warnings: [] });
     }
   }
 
@@ -238,6 +236,8 @@ class Store {
     const inst = this.instance;
     if (!inst || this.busy) return;
     this.phase = 'preparing';
+    this.attemptInstance = $state.snapshot(inst);
+    this.failedStage = '';
     this.message = '';
     this.exitCode = null;
     this.warnings = [];
@@ -259,8 +259,7 @@ class Store {
       const server = inst.target.kind === 'server' ? inst.target.address : null;
       await api.horizonPlay(inst.id, server);
     } catch (e) {
-      this.phase = 'error';
-      this.message = errText(e);
+      this.onGameState({ state: 'error', message: errText(e), warnings: [] });
     }
   }
   cancelPlay() { api.playCancel().catch(() => {}); }

@@ -20,6 +20,10 @@ En **Cuentas → Ely.by**, introduce usuario, contraseña y opcionalmente seis d
 
 En **Diagnóstico**, Launcher muestra la preparación y Juego muestra stdout/stderr de esta sesión, incluso si el cliente falla antes de crear `latest.log`. En una nueva sesión de la app se usa el archivo `launcher-session.log` si existe, y `latest.log` como respaldo. El fallo conserva la instancia del intento para mostrar registros y generar reportes aunque se cambie la selección. Al volver a Jugar se puede corregir la instancia/cuenta y reintentar. Al cambiar de instancia o pestaña, una respuesta retrasada de la consulta anterior no sustituye los registros actuales.
 
+Esto también se aplica al botón de Horizon: un fallo al consultar, instalar o
+lanzar el motor abre Diagnóstico para la instancia intentada. Cada intento
+descarta la etapa anterior y conserva la última etapa de preparación si falla.
+
 ## Conservación ante errores de persistencia
 
 Las mutaciones de cuentas rechazan JSON ilegible o dañado antes de escribir.
@@ -46,6 +50,11 @@ Un build a la vez, desde Star:
 ~/ai-hub/scripts/build_seguro.sh 21 "$PWD/ui" npm run build
 ~/ai-hub/scripts/build_seguro.sh 21 "$PWD" env DRAKESTAR_CATALOG_SMOKE=1 ~/.cargo/bin/cargo run -p drakestar-mc --example catalog_smoke -j 2
 ```
+
+`npm run build` incluye las regresiones de diagnóstico de la interfaz. Para
+ejecutarlas por separado, usa `npm run test:diagnostics` desde `ui/` con el mismo
+wrapper. Compilan el estado Svelte de cliente y simulan fallos de las APIs;
+no abren Minecraft ni prueban una sesión real de Horizon.
 
 El smoke hace búsquedas reales, instala/quita FerriteCore, Bare Bones y Complementary Reimagined (Iris/Sodium incluidos) para Minecraft 1.21.1 en una carpeta temporal; no abre Minecraft, no usa cuentas ni instancias del jugador, y limpia el destino. La capa Tauri se valida en CI, porque Star no tiene `webkit2gtk-4.1` de desarrollo.
 
