@@ -143,6 +143,10 @@ pub fn remove_fused(mods_dir: &Path) {
 pub fn ensure_fused(mods_dir: &Path, mc: &str, loader: &str) -> McResult<Option<PathBuf>> {
     // jars defectuosos que pudieron quedar de instalaciones anteriores
     remove_matching(mods_dir, |n| n.starts_with("drakestar-fused-") && FUSED_BROKEN_TAGS.iter().any(|t| n.ends_with(&format!("-{}.jar", t.trim_start_matches('v')))));
+    // ensayo local (p. ej. el jar del CI con el host embebido) sin publicar una release que bajarian todos los jugadores
+    if let Some(src) = std::env::var_os("DRAKESTAR_FUSED_JAR").filter(|v| !v.is_empty()) {
+        return Ok(Some(local_fused(mods_dir, Path::new(&src))?));
+    }
     let rels: Vec<GhRelease> = get_json("https://api.github.com/repos/SlimefunNewHorizons/drakestar-fused/releases?per_page=10")?;
     let exact = format!("drakestar-fused-{loader}-{mc}-");
     let uni = format!("drakestar-fused-{loader}-universal-");
@@ -160,6 +164,17 @@ pub fn ensure_fused(mods_dir: &Path, mc: &str, loader: &str) -> McResult<Option<
         }
     }
     Ok(None)
+}
+
+/// Copia un jar de Fused local a mods/ como unico Fused (nombre `drakestar-fused-*` para que `remove_fused` lo encuentre).
+fn local_fused(mods_dir: &Path, src: &Path) -> std::io::Result<PathBuf> {
+    let name = src.file_name().ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "DRAKESTAR_FUSED_JAR sin nombre de archivo"))?.to_string_lossy();
+    let name = if name.starts_with("drakestar-fused-") { name.into_owned() } else { format!("drakestar-fused-{name}") };
+    std::fs::create_dir_all(mods_dir)?;
+    let dest = mods_dir.join(&name);
+    std::fs::copy(src, &dest)?;
+    remove_matching(mods_dir, |n| n.starts_with("drakestar-fused-") && n.ends_with(".jar") && n != name);
+    Ok(dest)
 }
 
 /// Si el jar de Fused trae el host embebido (`Embed`, paso 5a): puede arrancar el monolito dentro del cliente.
@@ -188,7 +203,7 @@ pub fn ensure_slimefun(plugins_dir: &Path, mc: &str) -> McResult<Option<PathBuf>
 
 #[cfg(test)]
 mod embed_tests {
-    use super::fused_embeds;
+    use super::{fused_embeds, local_fused};
     use std::io::Write;
 
     fn jar(dir: &std::path::Path, name: &str, entries: &[&str]) -> std::path::PathBuf {
@@ -211,6 +226,23 @@ mod embed_tests {
         std::fs::write(d.join("roto.jar"), b"no zip").unwrap();
         assert!(!fused_embeds(&d.join("roto.jar")));
         assert!(!fused_embeds(&d.join("falta.jar")));
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn fused_local_reemplaza_al_de_release() {
+        let d = std::env::temp_dir().join(format!("fused-local-{}", std::process::id()));
+        let mods = d.join("mods");
+        std::fs::create_dir_all(&mods).unwrap();
+        std::fs::write(mods.join("drakestar-fused-fabric-universal-1.0.0-alpha.3.jar"), b"viejo").unwrap();
+        std::fs::write(mods.join("sodium.jar"), b"otro mod").unwrap();
+        let src = jar(&d, "fabric-ci.jar", &["fabric.mod.json", "Embed.class"]);
+        let dest = local_fused(&mods, &src).unwrap();
+        assert_eq!(dest, mods.join("drakestar-fused-fabric-ci.jar"));
+        assert!(fused_embeds(&dest));
+        assert!(!mods.join("drakestar-fused-fabric-universal-1.0.0-alpha.3.jar").exists());
+        assert!(mods.join("sodium.jar").exists());
+        assert!(local_fused(&mods, &d.join("falta.jar")).is_err());
         let _ = std::fs::remove_dir_all(&d);
     }
 }
