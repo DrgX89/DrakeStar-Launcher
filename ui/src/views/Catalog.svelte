@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   import { api } from '../lib/api';
   import { errText } from '../lib/format';
   import { t } from '../lib/i18n.svelte';
@@ -12,14 +13,21 @@
   let error = $state('');
   let searching = $state(false);
   let request = 0;
+  let installedRequest = 0;
+  // Si se vuelve a esta vista durante una descarga, listar al terminarla.
+  let listReady = $state(!app.catalogBusy);
   const instance = $derived(app.instance);
   const unsupported = $derived(instance?.loader !== 'fabric' && kind !== 'resourcepack');
 
+  onDestroy(() => { installedRequest++; });
+  $effect(() => { if (!listReady && !app.catalogBusy) listReady = true; });
   $effect(() => {
     const id = instance?.id;
+    if (!listReady) return;
+    const seq = ++installedRequest;
     let active = true;
     installed = []; hits = []; error = ''; request++; searching = false;
-    if (id) api.catalogList(id).then((v) => { if (active) installed = v; }).catch((e) => { if (active) error = errText(e); });
+    if (id) api.catalogList(id).then((v) => { if (active && seq === installedRequest) installed = v; }).catch((e) => { if (active && seq === installedRequest) error = errText(e); });
     return () => { active = false; };
   });
   async function search() {
@@ -33,12 +41,22 @@
   async function change(project: string, remove: boolean, contentKind = kind) {
     if (!instance || app.busy) return;
     const id = instance.id;
+    // La mutacion sustituye cualquier listado anterior de esta instancia.
+    const seq = ++installedRequest;
+    const current = () => seq === installedRequest && instance?.id === id;
     app.catalogBusy = true; error = '';
-    try { installed = await api.catalogChange(id, contentKind, project, remove); }
+    try {
+      const entries = await api.catalogChange(id, contentKind, project, remove);
+      if (current()) installed = entries;
+    }
     catch (e) {
+      if (!current()) return;
       error = errText(e);
       // Dependencias que sí se descargaron antes de un fallo también quedan visibles.
-      try { installed = await api.catalogList(id); } catch { /* conservar el error original */ }
+      try {
+        const entries = await api.catalogList(id);
+        if (current()) installed = entries;
+      } catch { /* conservar el error original */ }
     } finally { app.catalogBusy = false; }
   }
 </script>
