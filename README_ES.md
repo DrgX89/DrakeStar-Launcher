@@ -19,7 +19,7 @@ DrakeStar se **actualiza solo**: busca versiones nuevas al abrir y desde *Ajuste
 ## Usar
 
 1. **Cuentas**: inicia sesión con Microsoft (se abre tu navegador solo; solo escribes el código si te lo pide) o agrega una cuenta sin premium. Puedes tener varias de cada tipo y elegir con cuál jugar.
-2. **Elige qué jugar**: *DrakesCraft (online)*, *Slimefun en solitario / LAN* (arranca solo el monolito DrakesPurpur en tu equipo y entra; 26.2, Java 25, ~8 GB de RAM libres), *Minecraft vanilla* o una instancia tuya (versión, Fabric o vanilla, memoria, mods de rendimiento).
+2. **Elige qué jugar**: *DrakesCraft (online)*, *Slimefun en solitario / LAN* (en 26.2 + Java 25 con **DrakeStar Fused** `v1.0.0-alpha.4+`, embebe el monolito **DrakesPurpur 26.2** con Slimefun + 9 suites + motor Rust FFM/JNI dentro de la misma JVM del cliente Fabric y entra directo sin levantar un segundo proceso de servidor; ~6 GB de RAM libres, con respaldo automático al servidor local gestionado si se desactiva Fused), *Minecraft vanilla* o una instancia tuya (versión, Fabric o vanilla, memoria, mods de rendimiento).
 3. **JUGAR**. La primera vez descarga Java y los archivos del juego; después abre en segundos.
 
 Fabric instala además Fabric API y, si lo activas, los mods de rendimiento (Sodium, Lithium, FerriteCore, ImmediatelyFast, Entity Culling) y **DrakeStar Fused** (alfa: un solo `.jar` para 1.20 a 26.2).
