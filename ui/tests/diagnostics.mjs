@@ -41,6 +41,73 @@ try {
     });
   }
 
+  const originalAccount = { id: 'original', kind: 'offline', name: 'Original', uuid: 'synthetic-original', added_at: 1 };
+  const currentAccount = { ...originalAccount, id: 'current', name: 'Current', uuid: 'synthetic-current' };
+  for (const order of ['old-first', 'new-first']) {
+    for (const previousOutcome of ['success', 'error']) {
+      for (const currentOutcome of ['success', 'error']) {
+        await test(`cuentas concurrentes ${order}/${previousOutcome}/${currentOutcome}: conserva la ultima lectura`, async () => {
+          reset();
+          app.accounts = { accounts: [originalAccount], default: originalAccount.id };
+          const finish = [];
+          api.accounts = () => new Promise((resolve, reject) => finish.push({ resolve, reject }));
+          let oldSettled = false;
+          const result = (promise) => promise.then(() => null, (e) => e.message);
+          const old = result(app.loadAccounts()).then((value) => { oldSettled = true; return value; });
+          const current = result(app.loadAccounts());
+          const complete = (index, outcome) => outcome === 'success'
+            ? finish[index].resolve({ accounts: [index === 0 ? originalAccount : currentAccount], default: index === 0 ? originalAccount.id : currentAccount.id })
+            : finish[index].reject(new Error(index === 0 ? 'Obsolete account error' : 'Current account error'));
+          let settledBeforeCurrent = false;
+          if (order === 'old-first') {
+            complete(0, previousOutcome);
+            for (let i = 0; i < 5; i++) await Promise.resolve();
+            settledBeforeCurrent = oldSettled;
+          }
+          complete(1, currentOutcome);
+          const currentResult = await current;
+          if (order === 'new-first') complete(0, previousOutcome);
+          const oldResult = await old;
+          assert.equal(oldResult, currentResult);
+          if (order === 'old-first') assert.equal(settledBeforeCurrent, false);
+          assert.equal(currentResult, currentOutcome === 'success' ? null : 'Current account error');
+          assert.equal(app.account.id, currentOutcome === 'success' ? 'current' : 'original');
+        });
+      }
+    }
+  }
+
+  for (const operation of ['remove', 'select']) {
+    await test(`cuentas: ${operation} no se revierte por una lista anterior`, async () => {
+      reset();
+      app.accounts = { accounts: [originalAccount, currentAccount], default: originalAccount.id };
+      const finish = [];
+      api.accounts = () => new Promise((resolve, reject) => finish.push({ resolve, reject }));
+      const old = app.loadAccounts();
+      api.removeAccount = async (id) => assert.equal(id, originalAccount.id);
+      api.setDefaultAccount = async (id) => assert.equal(id, currentAccount.id);
+      const mutation = operation === 'remove' ? app.removeAccount(originalAccount.id) : app.useAccount(currentAccount.id);
+      await Promise.resolve();
+      finish[1].resolve({ accounts: operation === 'remove' ? [currentAccount] : [originalAccount, currentAccount], default: currentAccount.id });
+      await mutation;
+      finish[0].resolve({ accounts: [originalAccount, currentAccount], default: originalAccount.id });
+      await old;
+      assert.equal(app.account.id, currentAccount.id);
+      assert.equal(app.accounts.accounts.length, operation === 'remove' ? 1 : 2);
+    });
+  }
+
+  await test('cuentas: error vigente se propaga y permite reintentar sin perder la lista anterior', async () => {
+    reset();
+    app.accounts = { accounts: [originalAccount], default: originalAccount.id };
+    api.accounts = async () => { throw new Error('Current account error'); };
+    await assert.rejects(app.loadAccounts(), /Current account error/);
+    assert.equal(app.account.id, originalAccount.id);
+    api.accounts = async () => ({ accounts: [currentAccount], default: currentAccount.id });
+    await app.loadAccounts();
+    assert.equal(app.account.id, currentAccount.id);
+  });
+
   for (const order of ['old-first', 'new-first']) {
     for (const previousOutcome of ['success', 'error']) {
       for (const currentOutcome of ['success', 'error']) {
