@@ -69,8 +69,8 @@ impl Instance {
         if (self.performance || self.fused) && self.loader != Loader::Fabric {
             return Err(McError::Invalid("los mods de rendimiento y Fused necesitan Fabric".into()));
         }
-        if matches!(self.target, Target::Local { .. }) && (self.fused || self.performance && self.loader != Loader::Fabric) {
-            return Err(McError::Invalid("un servidor local no usa Fused (los plugins van en el servidor)".into()));
+        if matches!(self.target, Target::Local { .. }) && self.fused && !crate::server::is_monolith(&self.mc) {
+            return Err(McError::Invalid("un servidor local solo admite Fused en 26.x (monolito embebido)".into()));
         }
         if self.xmx_mb < 1024 || self.xmx_mb > 65536 {
             return Err(McError::Invalid("la memoria debe estar entre 1024 y 65536 MB".into()));
@@ -212,6 +212,11 @@ mod tests {
         let mut v = presets().remove(2);
         v.performance = true;
         assert!(v.validate().is_err());
+        let mut local = presets().remove(1);
+        local.fused = true;
+        assert!(local.validate().is_ok());
+        local.mc = "1.21.11".into();
+        assert!(local.validate().is_err());
     }
 
     #[test]

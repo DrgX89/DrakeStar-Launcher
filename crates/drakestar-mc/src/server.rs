@@ -83,6 +83,9 @@ pub fn is_monolith(mc: &str) -> bool {
 pub fn ensure_drakespurpur(d: &Dirs, inst_id: &str, sink: &dyn ProgressSink) -> McResult<PathBuf> {
     let sdir = dir(d, inst_id);
     std::fs::create_dir_all(&sdir)?;
+    if let Some(src) = std::env::var_os("DRAKESTAR_PURPUR_JAR").filter(|v| !v.is_empty()) {
+        return local_purpur(&sdir, Path::new(&src)).map_err(Into::into);
+    }
     let mut req = ureq::get("https://api.github.com/repos/SlimefunNewHorizons/DrakesPurpur/releases/latest")
         .set("User-Agent", "SlimefunNewHorizons/DrakeStar-Launcher")
         .timeout(Duration::from_secs(30));
@@ -120,6 +123,26 @@ pub fn ensure_drakespurpur(d: &Dirs, inst_id: &str, sink: &dyn ProgressSink) -> 
         }
     }
     Ok(jar)
+}
+
+/// Copia un jar local de DrakesPurpur a la carpeta del servidor (nombre `purpur-paperclip-*` para que `cached_jar` lo reconozca).
+fn local_purpur(sdir: &Path, src: &Path) -> std::io::Result<PathBuf> {
+    let name = src.file_name().ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "DRAKESTAR_PURPUR_JAR sin nombre de archivo"))?.to_string_lossy();
+    let name = if name.starts_with("purpur-paperclip-") { name.into_owned() } else { format!("purpur-paperclip-{name}") };
+    std::fs::create_dir_all(sdir)?;
+    let dest = sdir.join(&name);
+    if src != dest {
+        std::fs::copy(src, &dest)?;
+    }
+    if let Ok(rd) = std::fs::read_dir(sdir) {
+        for e in rd.flatten() {
+            let n = e.file_name().to_string_lossy().into_owned();
+            if n.starts_with("purpur-") && n.ends_with(".jar") && n != name {
+                let _ = std::fs::remove_file(e.path());
+            }
+        }
+    }
+    Ok(dest)
 }
 
 /// Jar de DrakesPurpur ya descargado en la carpeta del servidor (el mas reciente si hubiera varios).
@@ -216,6 +239,12 @@ mod tests {
         assert_eq!(cached_jar(&t), None);
         std::fs::write(t.join("purpur-paperclip-26.2.build.140-stable.jar"), b"x").unwrap();
         assert_eq!(cached_jar(&t), Some(t.join("purpur-paperclip-26.2.build.140-stable.jar")));
+        let src = t.join("b141.jar");
+        std::fs::write(&src, b"b141").unwrap();
+        let dest = local_purpur(&t, &src).unwrap();
+        assert_eq!(dest, t.join("purpur-paperclip-b141.jar"));
+        assert!(!t.join("purpur-paperclip-26.2.build.140-stable.jar").exists());
+        assert_eq!(cached_jar(&t), Some(dest));
         let _ = std::fs::remove_dir_all(&t);
     }
 
