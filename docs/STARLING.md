@@ -28,6 +28,10 @@ sobre su configuración actual, aunque se haya seleccionado otra; no restaura
 el perfil antiguo del intento. Si se borró la instancia o no se puede leer el
 catálogo, la recuperación no modifica otro perfil.
 
+Si coinciden varias lecturas del catálogo de instancias, solo la última cambia
+los perfiles y el error visible. Guardar espera ese resultado vigente; una
+respuesta antigua no restaura perfiles ni oculta una lectura aún pendiente.
+
 Los reportes manuales pendientes dejan de actualizar el diagnóstico al iniciar
 otra partida, incluso si se reintenta la misma instancia. Si se solicitan varios,
 solo la última solicitud muestra su resultado o error. Esto no cancela un envío

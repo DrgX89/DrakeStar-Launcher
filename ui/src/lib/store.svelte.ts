@@ -44,6 +44,8 @@ class Store {
 
   private nextToast = 1;
   private reportRequest = 0;
+  private instancesRequest = 0;
+  private instancesRead: Promise<boolean> = Promise.resolve(false);
 
   get instance(): Instance | null {
     if (this.instancesError) return null;
@@ -99,19 +101,28 @@ class Store {
   async loadAccounts() {
     this.accounts = await api.accounts();
   }
-  async loadInstances(): Promise<boolean> {
+  loadInstances(): Promise<boolean> {
+    const request = ++this.instancesRequest;
     this.instancesLoading = true;
+    this.instancesRead = this.readInstances(request);
+    return this.instancesRead;
+  }
+  private async readInstances(request: number): Promise<boolean> {
     try {
-      this.instances = await api.instances();
+      const instances = await api.instances();
+      // Un guardado que esperaba esta lectura necesita el resultado vigente.
+      if (request !== this.instancesRequest) return this.instancesRead;
+      this.instances = instances;
       this.instancesError = null;
       return true;
     } catch (e) {
+      if (request !== this.instancesRequest) return this.instancesRead;
       this.instances = [];
       this.selected = null;
       this.instancesError = errText(e);
       return false;
     } finally {
-      this.instancesLoading = false;
+      if (request === this.instancesRequest) this.instancesLoading = false;
     }
   }
   async loadVersions() {
