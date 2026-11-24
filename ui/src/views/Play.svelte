@@ -93,7 +93,7 @@
             <div class="row">
               <button class="btn sm" type="button" onclick={() => (app.view = 'logs')}><Icon name="file" /> {t('play.view_logs')}</button>
               {#if !app.report?.sent}<button class="btn sm" type="button" onclick={() => app.makeReport(true)}><Icon name="send" /> {t('play.send_report')}</button>{/if}
-              {#if inst.fused}<button class="btn sm" type="button" onclick={() => app.disableFused()}>{t('play.disable_fused')}</button>{/if}
+              {#if app.recoveryInstance?.fused}<button class="btn sm" type="button" onclick={() => app.disableFused()}>{t('play.disable_fused')}</button>{/if}
             </div>
           </div>
         </div>

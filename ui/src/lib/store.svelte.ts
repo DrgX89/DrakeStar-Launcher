@@ -52,6 +52,11 @@ class Store {
     const l = this.accounts;
     return l.accounts.find((a) => a.id === l.default) ?? l.accounts[0] ?? null;
   }
+  get recoveryInstance(): Instance | null {
+    if (this.instancesError) return null;
+    if (!this.attemptInstance) return this.instance;
+    return this.instances.find((i) => i.id === this.attemptInstance?.id) ?? null;
+  }
   get busy(): boolean {
     return this.catalogBusy || this.phase === 'preparing' || this.phase === 'running';
   }
@@ -187,7 +192,7 @@ class Store {
   }
   /** Tras un fallo en una instancia con Fused: lo apaga (y borra su jar al jugar de nuevo). */
   async disableFused() {
-    const i = this.instance;
+    const i = this.recoveryInstance;
     if (!i) return;
     const err = await this.saveInstance({ ...$state.snapshot(i), fused: false });
     this.toast(err ? 'error' : 'ok', err ?? t('set.saved'));

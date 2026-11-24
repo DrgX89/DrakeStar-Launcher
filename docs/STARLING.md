@@ -23,6 +23,10 @@ En **Diagnóstico**, Launcher muestra la preparación y Juego muestra stdout/std
 Esto también se aplica al botón de Horizon: un fallo al consultar, instalar o
 lanzar el motor abre Diagnóstico para la instancia intentada. Cada intento
 descarta la etapa anterior y conserva la última etapa de preparación si falla.
+Editar desde el diagnóstico selecciona esa instancia. Desactivar Fused actúa
+sobre su configuración actual, aunque se haya seleccionado otra; no restaura
+el perfil antiguo del intento. Si se borró la instancia o no se puede leer el
+catálogo, la recuperación no modifica otro perfil.
 
 ## Conservación ante errores de persistencia
 

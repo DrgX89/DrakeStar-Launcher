@@ -51,7 +51,7 @@
       <p class="small muted">{t('diag.recovery')}</p>
       <div class="row">
         <button class="btn primary" type="button" disabled={app.busy} onclick={() => { if (instance) app.select(instance.id); app.view = 'play'; }}>{t('diag.back')}</button>
-        <button class="btn" type="button" onclick={() => (app.view = 'instances')}>{t('ins.edit')}</button>
+        <button class="btn" type="button" disabled={!app.recoveryInstance} onclick={() => { if (app.recoveryInstance) app.select(app.recoveryInstance.id); app.view = 'instances'; }}>{t('ins.edit')}</button>
         <button class="btn" type="button" onclick={() => (app.view = 'accounts')}>{t('nav.accounts')}</button>
         {#if instance}<button class="btn" type="button" onclick={() => app.openInstanceFolder(instance.id)}><Icon name="folder" /> {t('common.open_folder')}</button>{/if}
       </div>

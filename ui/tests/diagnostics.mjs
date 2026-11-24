@@ -123,6 +123,45 @@ try {
       assert.equal(app.phase, 'running');
     });
   }
+
+  await test('desactivar Fused recupera la instancia fallida y conserva sus ediciones recientes', async () => {
+    reset();
+    app.phase = 'error';
+    app.attemptInstance = { ...first, fused: true, name: 'Old name' };
+    app.instances = [{ ...first, fused: true, name: 'Updated name' }, { ...second, fused: false }];
+    app.toast = () => {};
+    let saved;
+    api.saveInstance = async (instance) => { saved = instance; return instance; };
+    api.instances = async () => [saved, { ...second, fused: false }];
+    assert.equal(app.recoveryInstance.id, 'first');
+    assert.equal(app.recoveryInstance.fused, true);
+    await app.disableFused();
+    assert.equal(saved.id, 'first');
+    assert.equal(saved.fused, false);
+    assert.equal(saved.name, 'Updated name');
+    assert.equal(app.instances.find((i) => i.id === 'second').fused, false);
+    assert.equal(app.attemptInstance.fused, true);
+    assert.equal(app.recoveryInstance.fused, false);
+  });
+
+  for (const unavailable of ['deleted', 'unreadable']) {
+    await test(`recuperacion con catalogo ${unavailable} no modifica otra instancia`, async () => {
+      reset();
+      app.phase = 'error';
+      app.instances = [{ ...second, fused: true }];
+      if (unavailable === 'unreadable') app.instancesError = 'Synthetic catalog error';
+      api.saveInstance = async () => assert.fail('No debe guardar otra instancia');
+      assert.equal(app.recoveryInstance, null);
+      await app.disableFused();
+      assert.equal(app.instances[0].fused, true);
+    });
+  }
+
+  await test('sin intento previo la recuperacion conserva la seleccion actual', () => {
+    reset();
+    app.attemptInstance = null;
+    assert.equal(app.recoveryInstance.id, 'second');
+  });
 } finally {
   await rm(out, { recursive: true, force: true });
 }
