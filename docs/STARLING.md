@@ -28,6 +28,11 @@ sobre su configuración actual, aunque se haya seleccionado otra; no restaura
 el perfil antiguo del intento. Si se borró la instancia o no se puede leer el
 catálogo, la recuperación no modifica otro perfil.
 
+Los reportes manuales pendientes dejan de actualizar el diagnóstico al iniciar
+otra partida, incluso si se reintenta la misma instancia. Si se solicitan varios,
+solo la última solicitud muestra su resultado o error. Esto no cancela un envío
+que el backend ya haya iniciado.
+
 ## Conservación ante errores de persistencia
 
 Las mutaciones de cuentas rechazan JSON ilegible o dañado antes de escribir.
