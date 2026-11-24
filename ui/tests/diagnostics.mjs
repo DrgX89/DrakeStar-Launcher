@@ -38,11 +38,45 @@ try {
       attemptInstance: first, failedStage: 'Previous attempt',
       message: 'Previous error', exitCode: 9, progress: null,
       gameLines: ['Previous output'], warnings: ['Previous warning'], report: null,
+      msa: { open: false, step: 'starting', code: null, message: '' },
     });
   }
 
   const originalAccount = { id: 'original', kind: 'offline', name: 'Original', uuid: 'synthetic-original', added_at: 1 };
   const currentAccount = { ...originalAccount, id: 'current', name: 'Current', uuid: 'synthetic-current' };
+  for (const outcome of ['success', 'error']) {
+    await test(`Microsoft: el refresco de cuentas ${outcome} termina con diagnostico`, async () => {
+      reset();
+      app.accounts = { accounts: [originalAccount], default: originalAccount.id };
+      app.msa.open = true;
+      const toasts = [];
+      app.toast = (...args) => toasts.push(args);
+      api.accounts = async () => {
+        if (outcome === 'error') throw new Error('Account refresh unavailable');
+        return { accounts: [currentAccount], default: currentAccount.id };
+      };
+      app.onMsa({ phase: 'success', message: 'Session authenticated' });
+      await new Promise((resolve) => setImmediate(resolve));
+      assert.equal(app.msa.open, false);
+      assert.equal(app.account.id, outcome === 'success' ? 'current' : 'original');
+      assert.deepEqual(toasts, outcome === 'success'
+        ? [['ok', 'Session authenticated']]
+        : [['ok', 'Session authenticated'], ['error', 'Account refresh unavailable']]);
+    });
+  }
+
+  await test('Microsoft: el evento de una ventana cerrada no refresca cuentas', async () => {
+    reset();
+    let reads = 0;
+    const toasts = [];
+    app.toast = (...args) => toasts.push(args);
+    api.accounts = async () => { reads++; return { accounts: [], default: null }; };
+    app.onMsa({ phase: 'success', message: 'Ignored authentication event' });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(reads, 0);
+    assert.deepEqual(toasts, []);
+  });
+
   for (const order of ['old-first', 'new-first']) {
     for (const previousOutcome of ['success', 'error']) {
       for (const currentOutcome of ['success', 'error']) {
