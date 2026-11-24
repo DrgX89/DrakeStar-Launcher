@@ -43,6 +43,7 @@ class Store {
   msa = $state<MsaUi>({ open: false, step: 'starting', code: null, message: '' });
 
   private nextToast = 1;
+  private reportRequest = 0;
 
   get instance(): Instance | null {
     if (this.instancesError) return null;
@@ -220,6 +221,7 @@ class Store {
     this.progress = null;
     this.gameLines = [];
     this.report = null;
+    this.reportRequest++;
     try {
       await api.play(inst.id, this.account?.id);
     } catch (e) {
@@ -249,6 +251,7 @@ class Store {
     this.progress = null;
     this.gameLines = [];
     this.report = null;
+    this.reportRequest++;
     try {
       // El motor se instala si faltan los binarios; preparar los recursos ya
       // pasa dentro de `horizon_play` (con su barra de progreso), así que el
@@ -280,7 +283,10 @@ class Store {
     this.exitCode = g.code ?? null;
     this.warnings = g.warnings ?? [];
     if (g.state !== 'preparing') this.progress = null;
-    if (g.state === 'preparing') this.report = null;
+    if (g.state === 'preparing') {
+      this.report = null;
+      this.reportRequest++;
+    }
   }
   private pushLine(line: string) {
     this.gameLines.push(line);
@@ -289,12 +295,14 @@ class Store {
 
   // ---------- soporte ----------
   async makeReport(send: boolean) {
+    const request = ++this.reportRequest;
     try {
       const r = await api.report(this.attemptInstance?.id ?? this.instance?.id ?? null, send);
+      if (request !== this.reportRequest) return;
       this.report = r;
       this.toast('ok', r.sent ? t('log.sent') : t('log.saved', { path: r.path }));
     } catch (e) {
-      this.toast('error', errText(e));
+      if (request === this.reportRequest) this.toast('error', errText(e));
     }
   }
 

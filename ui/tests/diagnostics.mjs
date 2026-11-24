@@ -162,6 +162,81 @@ try {
     app.attemptInstance = null;
     assert.equal(app.recoveryInstance.id, 'second');
   });
+
+  for (const method of ['play', 'playHorizon']) {
+    for (const outcome of ['success', 'error']) {
+      await test(`${method}: ignora reporte ${outcome} del intento anterior de la misma instancia`, async () => {
+        reset();
+        app.selected = 'first';
+        const toasts = [];
+        app.toast = (...args) => toasts.push(args);
+        let complete;
+        api.report = (id) => {
+          assert.equal(id, 'first');
+          return new Promise((resolve, reject) => {
+            complete = () => outcome === 'success'
+              ? resolve({ path: 'previous.zip', sent: true })
+              : reject(new Error('Previous report failure'));
+          });
+        };
+        const pending = app.makeReport(true);
+        api[method === 'play' ? 'play' : 'horizonPlay'] = async () => {
+          throw new Error('Current launch failure');
+        };
+        await app[method]();
+        assert.equal(app.attemptInstance.id, 'first');
+        complete();
+        await pending;
+        assert.equal(app.report, null);
+        assert.deepEqual(toasts, []);
+        assert.equal(app.message, 'Current launch failure');
+      });
+    }
+  }
+
+  for (const order of ['old-first', 'new-first']) {
+    await test(`reportes concurrentes ${order}: solo la ultima solicitud actualiza el diagnostico`, async () => {
+      reset();
+      const toasts = [];
+      app.toast = (...args) => toasts.push(args);
+      const finish = [];
+      api.report = async () => new Promise((resolve) => finish.push(resolve));
+      const old = app.makeReport(false);
+      const current = app.makeReport(true);
+      const currentReport = { path: 'current.zip', sent: true };
+      if (order === 'old-first') {
+        finish[0]({ path: 'previous.zip', sent: false });
+        await old;
+        assert.equal(app.report, null);
+      }
+      finish[1](currentReport);
+      await current;
+      if (order === 'new-first') {
+        finish[0]({ path: 'previous.zip', sent: false });
+        await old;
+      }
+      assert.deepEqual(app.report, currentReport);
+      assert.equal(toasts.length, 1);
+      assert.equal(toasts[0][0], 'ok');
+    });
+  }
+
+  for (const outcome of ['success', 'error']) {
+    await test(`el reporte vigente conserva su resultado ${outcome}`, async () => {
+      reset();
+      const toasts = [];
+      app.toast = (...args) => toasts.push(args);
+      api.report = async () => {
+        if (outcome === 'error') throw new Error('Current report failure');
+        return { path: 'current.zip', sent: false };
+      };
+      await app.makeReport(false);
+      assert.equal(toasts.length, 1);
+      assert.equal(toasts[0][0], outcome === 'success' ? 'ok' : 'error');
+      if (outcome === 'success') assert.equal(app.report.path, 'current.zip');
+      else assert.equal(toasts[0][1], 'Current report failure');
+    });
+  }
 } finally {
   await rm(out, { recursive: true, force: true });
 }
