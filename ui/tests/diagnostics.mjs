@@ -44,6 +44,83 @@ try {
 
   const originalAccount = { id: 'original', kind: 'offline', name: 'Original', uuid: 'synthetic-original', added_at: 1 };
   const currentAccount = { ...originalAccount, id: 'current', name: 'Current', uuid: 'synthetic-current' };
+  const deviceCode = (user_code) => ({ user_code, verification_uri: 'https://example.invalid', expires_in: 600, interval: 5 });
+  for (const stage of ['cancel', 'start']) {
+    await test(`Microsoft: error vigente durante ${stage} sigue visible y permite reintentar`, async () => {
+      reset();
+      let fail = true;
+      api.msaCancel = async () => { if (fail && stage === 'cancel') throw new Error('Current authentication error'); };
+      api.msaStart = async () => {
+        if (fail) throw new Error('Current authentication error');
+        return deviceCode('RETRY');
+      };
+      await app.startMsa();
+      assert.equal(app.msa.open, true);
+      assert.equal(app.msa.step, 'error');
+      assert.equal(app.msa.message, 'Current authentication error');
+      fail = false;
+      await app.startMsa();
+      assert.equal(app.msa.open, true);
+      assert.equal(app.msa.step, 'waiting');
+      assert.equal(app.msa.code.user_code, 'RETRY');
+      assert.equal(app.msa.message, '');
+    });
+  }
+  for (const stage of ['cancel', 'start']) {
+    for (const outcome of ['success', 'error']) {
+      await test(`Microsoft: cancelar durante ${stage}/${outcome} mantiene cerrado el dialogo`, async () => {
+        reset();
+        let finish;
+        let starts = 0;
+        const pending = new Promise((resolve, reject) => { finish = { resolve, reject }; });
+        let cancels = 0;
+        api.msaCancel = () => ++cancels === 1 && stage === 'cancel' ? pending : Promise.resolve();
+        api.msaStart = () => { starts++; return stage === 'start' ? pending : Promise.resolve(deviceCode('OLD')); };
+        const attempt = app.startMsa();
+        await Promise.resolve();
+        if (stage === 'start') assert.equal(starts, 1);
+        await app.cancelMsa();
+        const closed = { ...app.msa };
+        if (outcome === 'success') finish.resolve(deviceCode('OLD'));
+        else finish.reject(new Error('Obsolete device code error'));
+        await attempt;
+        assert.deepEqual(app.msa, closed);
+        assert.equal(app.msa.open, false);
+        assert.equal(starts, stage === 'cancel' ? 0 : 1);
+      });
+    }
+  }
+  for (const order of ['old-first', 'new-first']) {
+    for (const outcome of ['success', 'error']) {
+      await test(`Microsoft: intento anterior ${order}/${outcome} no pisa el codigo vigente`, async () => {
+        reset();
+        const finish = [];
+        api.msaCancel = async () => {};
+        api.msaStart = () => new Promise((resolve, reject) => finish.push({ resolve, reject }));
+        const old = app.startMsa();
+        await Promise.resolve();
+        const current = app.startMsa();
+        await Promise.resolve();
+        assert.equal(finish.length, 2);
+        const settleOld = () => outcome === 'success'
+          ? finish[0].resolve(deviceCode('OLD'))
+          : finish[0].reject(new Error('Obsolete device code error'));
+        if (order === 'old-first') {
+          settleOld();
+          await old;
+          assert.equal(app.msa.step, 'starting');
+          assert.equal(app.msa.code, null);
+        }
+        finish[1].resolve(deviceCode('CURRENT'));
+        await current;
+        if (order === 'new-first') { settleOld(); await old; }
+        assert.equal(app.msa.open, true);
+        assert.equal(app.msa.step, 'waiting');
+        assert.equal(app.msa.code.user_code, 'CURRENT');
+        assert.equal(app.msa.message, '');
+      });
+    }
+  }
   for (const outcome of ['success', 'error']) {
     await test(`Microsoft: el refresco de cuentas ${outcome} termina con diagnostico`, async () => {
       reset();

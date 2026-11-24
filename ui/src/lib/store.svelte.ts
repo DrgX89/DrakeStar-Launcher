@@ -43,6 +43,7 @@ class Store {
   msa = $state<MsaUi>({ open: false, step: 'starting', code: null, message: '' });
 
   private nextToast = 1;
+  private msaRequest = 0;
   private reportRequest = 0;
   private accountsRequest = 0;
   private accountsRead: Promise<void> = Promise.resolve();
@@ -175,16 +176,21 @@ class Store {
   }
 
   async startMsa() {
+    const request = ++this.msaRequest;
     this.msa = { open: true, step: 'starting', code: null, message: '' };
     try {
       await api.msaCancel();
+      if (request !== this.msaRequest) return;
       const code = await api.msaStart();
+      if (request !== this.msaRequest) return;
       this.msa = { open: true, step: 'waiting', code, message: '' };
     } catch (e) {
+      if (request !== this.msaRequest) return;
       this.msa = { open: true, step: 'error', code: null, message: errText(e) };
     }
   }
   async cancelMsa() {
+    this.msaRequest++;
     this.msa.open = false;
     try { await api.msaCancel(); } catch { /* ya terminado */ }
   }
