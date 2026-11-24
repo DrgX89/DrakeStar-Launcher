@@ -8,6 +8,10 @@
 - **Diagnóstico** reúne fallo/etapa/instancia y salida de juego con regreso a Jugar, cuentas o edición. Carpeta de instancia accesible también desde Jugar y Catálogo, con errores visibles.
 - Alcance, pruebas y evaluación separada de Starling Android: [docs/STARLING.md](docs/STARLING.md); atribuciones en [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
+**Arreglado**
+- El launcher conserva `instances.json` si está dañado o no se puede leer. Guardar, retirar o abrir una instancia devuelve el error sin reemplazar sus perfiles por plantillas.
+- Si no puede leer las instancias, muestra un aviso persistente en Jugar e Instancias con reintento y acceso a la carpeta de datos. No permite jugar con perfiles obsoletos ni confunde el fallo con un catálogo vacío.
+
 ## 0.7.1 — Zero-Config, Slimefun Local Auto-Connect & Horizon JAVA_HOME fix (2026-11-19)
 
 **Arreglado**

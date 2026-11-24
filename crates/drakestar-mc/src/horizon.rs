@@ -154,7 +154,7 @@ pub fn install(hz: &Hz) -> McResult<()> {
         .arg(&pkg)
         .arg("--strip-components=1")
         .status()
-        .map_err(|e| McError::Io(e))?;
+        .map_err(McError::Io)?;
     if !st.success() {
         let _ = std::fs::remove_dir_all(&pkg);
         let _ = std::fs::remove_file(&tmp);
@@ -315,7 +315,7 @@ pub fn prepare(hz: &Hz, inputs: &Inputs, java_home: &Path) -> McResult<()> {
     let st = std::process::Command::new(hz.prepare())
         .args(&args)
         .output()
-        .map_err(|e| McError::Io(e))?;
+        .map_err(McError::Io)?;
     if !st.status.success() {
         let msg = String::from_utf8_lossy(&st.stderr);
         return Err(McError::Io(std::io::Error::other(format!(

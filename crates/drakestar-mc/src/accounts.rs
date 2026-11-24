@@ -174,7 +174,7 @@ impl Accounts {
         let mut secrets = self.read_secrets()?;
         secrets.insert(id.clone(), serde_json::to_string(token)?);
         self.save_with_secrets(&l, &secrets)?;
-        self.get(&id).ok_or_else(|| McError::NotFound(id))
+        self.get(&id).ok_or(McError::NotFound(id))
     }
 
     pub fn add_microsoft(&self, p: &McProfile, refresh_token: &str) -> McResult<Account> {
@@ -193,7 +193,7 @@ impl Accounts {
         let mut s = self.read_secrets()?;
         s.insert(id.clone(), refresh_token.to_string());
         self.save_with_secrets(&l, &s)?;
-        self.get(&id).ok_or_else(|| McError::NotFound(id))
+        self.get(&id).ok_or(McError::NotFound(id))
     }
 
     pub fn remove(&self, id: &str) -> McResult<()> {

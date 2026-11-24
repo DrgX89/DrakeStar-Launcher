@@ -25,7 +25,7 @@ fn main() {
     let root = a.get(1).cloned().unwrap_or_else(|| format!("{}/.drakestar-e2e", std::env::var("HOME").unwrap_or_else(|_| ".".into())));
     let lan = a.get(2).is_some_and(|s| s == "1");
     let xmx: u32 = a.get(3).and_then(|s| s.parse().ok()).unwrap_or(4096);
-    let perf = a.get(4).map_or(true, |s| s != "0");
+    let perf = a.get(4).is_none_or(|s| s != "0");
     let secs: u64 = a.get(5).and_then(|s| s.parse().ok()).unwrap_or(900);
     let shot = a.get(6).cloned();
     let d = Dirs::new(&root);

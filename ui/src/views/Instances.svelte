@@ -12,6 +12,13 @@
   let importing = $state(false);
   // undefined = formulario cerrado, null = instancia nueva
   let editing = $state<Instance | null | undefined>(undefined);
+
+  $effect(() => {
+    if (app.instancesError) {
+      editing = undefined;
+      importing = false;
+    }
+  });
 </script>
 
 <div class="page">
@@ -21,8 +28,8 @@
         <h1>{t('ins.title')}</h1>
         <p class="muted">{t('ins.subtitle')}</p>
       </div>
-      <button class="btn" type="button" onclick={() => (importing = true)}>{t('import.title')}</button>
-      <button class="btn primary" type="button" onclick={() => (editing = null)}><Icon name="plus" /> {t('ins.new')}</button>
+      <button class="btn" type="button" disabled={app.instancesError !== null} onclick={() => (importing = true)}>{t('import.title')}</button>
+      <button class="btn primary" type="button" disabled={app.instancesError !== null} onclick={() => (editing = null)}><Icon name="plus" /> {t('ins.new')}</button>
     </div>
   </header>
 

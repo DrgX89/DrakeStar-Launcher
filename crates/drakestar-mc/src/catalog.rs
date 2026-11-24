@@ -454,10 +454,8 @@ pub fn remove(d: &Dirs, inst: &Instance, project: &str) -> McResult<Vec<Entry>> 
     }
     let path = file_path(&root, entry.kind, &entry.filename)?;
     let delete_file = entry.owned && path.exists();
-    if delete_file {
-        if hash(&std::fs::read(&path)?) != entry.sha512 {
-            return Err(invalid("El archivo fue modificado fuera del catálogo; revísalo en la carpeta de la instancia."));
-        }
+    if delete_file && hash(&std::fs::read(&path)?) != entry.sha512 {
+        return Err(invalid("El archivo fue modificado fuera del catálogo; revísalo en la carpeta de la instancia."));
     }
     let previous = entries.clone();
     entries.retain(|e| e.project_id != project);
