@@ -39,6 +39,12 @@ que el backend ya haya iniciado.
 
 ## Conservación ante errores de persistencia
 
+Las lecturas concurrentes de cuentas solo muestran el listado y la cuenta
+seleccionada de la última solicitud. Una respuesta o error antiguo no revierte
+una selección ni vuelve a mostrar una cuenta retirada. Si falla la lectura
+vigente, se propaga el error y se conserva la lista anterior para reintentar;
+esto no cambia las credenciales ni la persistencia del backend.
+
 Las mutaciones de cuentas rechazan JSON ilegible o dañado antes de escribir.
 Si falla la escritura del listado después de guardar credenciales, se restauran
 los bytes anteriores de `secrets.json` (o se retira el archivo nuevo), con permisos

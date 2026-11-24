@@ -44,6 +44,8 @@ class Store {
 
   private nextToast = 1;
   private reportRequest = 0;
+  private accountsRequest = 0;
+  private accountsRead: Promise<void> = Promise.resolve();
   private instancesRequest = 0;
   private instancesRead: Promise<boolean> = Promise.resolve(false);
 
@@ -98,8 +100,20 @@ class Store {
     if (this.settings?.auto_update) setTimeout(() => this.checkUpdates(false), 2500);
   }
 
-  async loadAccounts() {
-    this.accounts = await api.accounts();
+  loadAccounts(): Promise<void> {
+    const request = ++this.accountsRequest;
+    this.accountsRead = this.readAccounts(request);
+    return this.accountsRead;
+  }
+  private async readAccounts(request: number): Promise<void> {
+    try {
+      const accounts = await api.accounts();
+      if (request !== this.accountsRequest) return this.accountsRead;
+      this.accounts = accounts;
+    } catch (e) {
+      if (request !== this.accountsRequest) return this.accountsRead;
+      throw e;
+    }
   }
   loadInstances(): Promise<boolean> {
     const request = ++this.instancesRequest;
