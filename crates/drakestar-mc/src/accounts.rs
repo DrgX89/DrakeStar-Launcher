@@ -220,14 +220,33 @@ impl Accounts {
     }
 
     pub fn touch(&self, id: &str) {
+        self.touch_with_name(id, None);
+    }
+
+    fn touch_with_name(&self, id: &str, new_name: Option<&str>) {
         let Ok(mut l) = self.read_list() else { return; };
         if let Some(a) = l.accounts.iter_mut().find(|a| a.id == id) {
+            if let Some(name) = new_name {
+                a.name = name.to_string();
+            }
             a.last_used = Some(now());
             let _ = self.save(&l);
         }
     }
 
-    /// Sesion lista para lanzar. Las cuentas Microsoft renuevan su token y guardan el nuevo refresh token.
+    fn persist_refreshed_elyby(&self, id: &str, expected_uuid: &str, session: Session, token: &crate::ely::Token) -> McResult<Session> {
+        if session.uuid != expected_uuid {
+            return Err(McError::Invalid("La identidad Ely.by cambió: vuelve a iniciar sesión.".into()));
+        }
+        // Persistir primero el token rotado en secrets.json sin rollback al token anterior ya invalidado por Ely.by.
+        let mut s = self.read_secrets()?;
+        s.insert(id.to_string(), serde_json::to_string(token)?);
+        self.save_secrets(&s)?;
+        self.touch_with_name(id, Some(&session.name));
+        Ok(session)
+    }
+
+    /// Sesion lista para lanzar. Las cuentas Microsoft y Ely.by guardan primero el token rotado en secrets.json.
     pub fn session(&self, id: &str, client_id: &str) -> McResult<Session> {
         let acc = self.get(id).ok_or_else(|| McError::NotFound(format!("cuenta {id}")))?;
         match acc.kind {
@@ -236,19 +255,16 @@ impl Accounts {
                 let stored = self.read_secrets()?.get(id).cloned().ok_or_else(|| McError::Invalid("Vuelve a iniciar sesión con Ely.by.".into()))?;
                 let token: crate::ely::Token = serde_json::from_str(&stored).map_err(|_| McError::Invalid("Vuelve a iniciar sesión con Ely.by.".into()))?;
                 let (session, token) = crate::ely::refresh(&token)?;
-                if session.uuid != acc.uuid { return Err(McError::Invalid("La identidad Ely.by cambió: vuelve a iniciar sesión.".into())); }
-                self.add_elyby(&session, &token)?;
-                self.touch(id);
-                Ok(session)
+                self.persist_refreshed_elyby(id, &acc.uuid, session, &token)
             }
             Kind::Microsoft => {
                 let rt = self.read_secrets()?.get(id).cloned().ok_or_else(|| McError::Invalid("falta el acceso guardado de esta cuenta: vuelve a iniciar sesion".into()))?;
                 let t = msa::refresh(client_id, &rt)?;
-                let p = msa::minecraft_profile(&t.access_token)?;
                 let mut s = self.read_secrets()?;
                 s.insert(id.to_string(), t.refresh_token.clone());
                 self.save_secrets(&s)?;
-                self.touch(id);
+                let p = msa::minecraft_profile(&t.access_token)?;
+                self.touch_with_name(id, Some(&p.name));
                 Ok(Session { name: p.name, uuid: p.uuid, access_token: p.access_token, user_type: "msa".into(), xuid: p.xuid, client_id: Some(client_id.into()) })
             }
         }
@@ -316,6 +332,86 @@ mod tests {
         assert!(secrets.contains("REFRESH-SECRET"));
         a.remove(&acc.id).unwrap();
         assert!(!std::fs::read_to_string(d.root().join("accounts/secrets.json")).unwrap().contains("REFRESH-SECRET"));
+        let _ = std::fs::remove_dir_all(d.root());
+    }
+
+    #[test]
+    fn elyby_refresh_persists_rotated_secret_without_rollback_on_list_failure() {
+        let d = tmp("ely-refresh");
+        let a = Accounts::new(&d);
+        let uuid = "069a79f444e94726a5befca90e38aaf5";
+        let initial_session = Session {
+            name: "Alex".into(),
+            uuid: uuid.into(),
+            access_token: "OLD-TOKEN".into(),
+            user_type: "mojang".into(),
+            xuid: None,
+            client_id: None,
+        };
+        let initial_token = crate::ely::Token {
+            access_token: "OLD-TOKEN".into(),
+            client_token: "CLIENT-1".into(),
+        };
+        let acc = a.add_elyby(&initial_session, &initial_token).unwrap();
+
+        // 1) Un cambio de UUID en refresh se rechaza sin pisar el token almacenado.
+        let wrong_uuid_session = Session {
+            name: "Impostor".into(),
+            uuid: "ffffffffffffffffffffffffffffffff".into(),
+            access_token: "WRONG-TOKEN".into(),
+            user_type: "mojang".into(),
+            xuid: None,
+            client_id: None,
+        };
+        let wrong_token = crate::ely::Token {
+            access_token: "WRONG-TOKEN".into(),
+            client_token: "CLIENT-1".into(),
+        };
+        assert!(a.persist_refreshed_elyby(&acc.id, &acc.uuid, wrong_uuid_session, &wrong_token).is_err());
+        assert!(std::fs::read_to_string(a.secrets_path()).unwrap().contains("OLD-TOKEN"));
+
+        // 2) Rotación normal actualiza secrets.json, nombre y last_used en una sola pasada.
+        let rotated_session = Session {
+            name: "AlexNew".into(),
+            uuid: uuid.into(),
+            access_token: "ROTATED-TOKEN-1".into(),
+            user_type: "mojang".into(),
+            xuid: None,
+            client_id: None,
+        };
+        let rotated_token = crate::ely::Token {
+            access_token: "ROTATED-TOKEN-1".into(),
+            client_token: "CLIENT-1".into(),
+        };
+        let out = a.persist_refreshed_elyby(&acc.id, &acc.uuid, rotated_session, &rotated_token).unwrap();
+        assert_eq!(out.access_token, "ROTATED-TOKEN-1");
+        assert!(std::fs::read_to_string(a.secrets_path()).unwrap().contains("ROTATED-TOKEN-1"));
+        let updated = a.get(&acc.id).unwrap();
+        assert_eq!(updated.name, "AlexNew");
+        assert!(updated.last_used.is_some());
+
+        // 3) Si accounts.json falla al actualizar metadatos tras rotar en el servidor remoto,
+        // secrets.json conserva el token nuevo (ROTATED-TOKEN-2) y nunca revierte al invalidado.
+        std::fs::remove_file(a.list_path()).unwrap();
+        std::fs::create_dir_all(a.list_path()).unwrap();
+        let rotated_session_2 = Session {
+            name: "AlexNew2".into(),
+            uuid: uuid.into(),
+            access_token: "ROTATED-TOKEN-2".into(),
+            user_type: "mojang".into(),
+            xuid: None,
+            client_id: None,
+        };
+        let rotated_token_2 = crate::ely::Token {
+            access_token: "ROTATED-TOKEN-2".into(),
+            client_token: "CLIENT-1".into(),
+        };
+        let out2 = a.persist_refreshed_elyby(&acc.id, &acc.uuid, rotated_session_2, &rotated_token_2).unwrap();
+        assert_eq!(out2.access_token, "ROTATED-TOKEN-2");
+        let saved_secrets = std::fs::read_to_string(a.secrets_path()).unwrap();
+        assert!(saved_secrets.contains("ROTATED-TOKEN-2"));
+        assert!(!saved_secrets.contains("ROTATED-TOKEN-1"));
+
         let _ = std::fs::remove_dir_all(d.root());
     }
 }

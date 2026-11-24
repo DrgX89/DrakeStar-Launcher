@@ -38,7 +38,10 @@ fn auth_error(status: u16, two_factor: bool) -> McError {
         else { "Ely.by no está disponible. Inténtalo más tarde." }.into())
 }
 fn request(action: &str, body: serde_json::Value) -> McResult<Response> {
-    let response = ureq::post(&format!("{AUTH}/{action}"))
+    request_at(AUTH, action, body)
+}
+fn request_at(base: &str, action: &str, body: serde_json::Value) -> McResult<Response> {
+    let response = ureq::post(&format!("{}/{action}", base.trim_end_matches('/')))
         .set("User-Agent", "SlimefunNewHorizons/DrakeStar-Launcher")
         .timeout(std::time::Duration::from_secs(30))
         .send_json(body);
@@ -186,5 +189,83 @@ mod tests {
             agent_arg(std::path::Path::new("folder with spaces/agent.jar")),
             "-javaagent:folder with spaces/agent.jar=ely.by"
         );
+    }
+
+    #[test]
+    fn loopback_yggdrasil_authenticate_and_refresh() {
+        use std::io::{Read, Write};
+        use std::net::TcpListener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let base = format!("http://{addr}/auth");
+
+        let server = std::thread::spawn(move || {
+            for step in 0..3 {
+                let (mut stream, _) = listener.accept().unwrap();
+                let mut buf = [0u8; 4096];
+                let n = stream.read(&mut buf).unwrap();
+                let req = String::from_utf8_lossy(&buf[..n]);
+                let (status, body) = match step {
+                    0 => {
+                        assert!(req.starts_with("POST /auth/authenticate "));
+                        assert!(req.contains("\"password\":\"secret:123456\""));
+                        (
+                            "200 OK",
+                            r#"{"accessToken":"ELY-TOK-1","clientToken":"CLI-1","selectedProfile":{"id":"069a79f4-44e9-4726-a5be-fca90e38aaf5","name":"AlexEly"}}"#,
+                        )
+                    }
+                    1 => {
+                        assert!(req.starts_with("POST /auth/refresh "));
+                        assert!(req.contains("\"accessToken\":\"ELY-TOK-1\""));
+                        (
+                            "200 OK",
+                            r#"{"accessToken":"ELY-TOK-2","clientToken":"CLI-1","selectedProfile":{"id":"069a79f444e94726a5befca90e38aaf5","name":"AlexRenamed"}}"#,
+                        )
+                    }
+                    _ => (
+                        "401 Unauthorized",
+                        r#"{"error":"ForbiddenOperationException","errorMessage":"Account protected with two factor auth.LENIENT-SECRET-DO-NOT-LEAK"}"#,
+                    ),
+                };
+                let resp = format!(
+                    "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                );
+                stream.write_all(resp.as_bytes()).unwrap();
+            }
+        });
+
+        let (s1, t1) = decode(
+            request_at(
+                &base,
+                "authenticate",
+                json!({"username":"alex","password":"secret:123456","clientToken":"CLI-1","requestUser":false}),
+            )
+            .unwrap(),
+            "CLI-1",
+        )
+        .unwrap();
+        assert_eq!(s1.name, "AlexEly");
+        assert_eq!(t1.access_token, "ELY-TOK-1");
+
+        let (s2, t2) = decode(
+            request_at(
+                &base,
+                "refresh",
+                json!({"accessToken":t1.access_token,"clientToken":t1.client_token,"requestUser":false}),
+            )
+            .unwrap(),
+            "CLI-1",
+        )
+        .unwrap();
+        assert_eq!(s2.name, "AlexRenamed");
+        assert_eq!(t2.access_token, "ELY-TOK-2");
+
+        let err = request_at(&base, "authenticate", json!({"username":"alex"})).err().unwrap().to_string();
+        assert!(err.contains("dos pasos"));
+        assert!(!err.contains("LENIENT-SECRET-DO-NOT-LEAK"));
+
+        server.join().unwrap();
     }
 }
