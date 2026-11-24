@@ -49,6 +49,7 @@ class Store {
   private accountsRead: Promise<void> = Promise.resolve();
   private instancesRequest = 0;
   private instancesRead: Promise<boolean> = Promise.resolve(false);
+  private settingsWrite: Promise<void> = Promise.resolve();
 
   get instance(): Instance | null {
     if (this.instancesError) return null;
@@ -144,7 +145,14 @@ class Store {
     try { this.versions = await api.versions(); } catch { /* sin red: el formulario deja escribir la version a mano */ }
   }
 
-  async saveSettings(patch: Partial<Settings>, quiet = true) {
+  saveSettings(patch: Partial<Settings>, quiet = true): Promise<void> {
+    const changes = { ...patch };
+    const save = () => this.writeSettings(changes, quiet);
+    // Cada parche parte del último guardado confirmado, sin perder otros campos.
+    this.settingsWrite = this.settingsWrite.then(save, save);
+    return this.settingsWrite;
+  }
+  private async writeSettings(patch: Partial<Settings>, quiet: boolean) {
     if (!this.settings) return;
     const next = { ...this.settings, ...patch };
     try {

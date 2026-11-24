@@ -42,6 +42,111 @@ try {
     });
   }
 
+  const settings = {
+    language: 'es', azure_client_id: null, send_reports: true, report_endpoint: null,
+    device_id: 'synthetic-device', last_instance: null, auto_update: true, first_run_done: true,
+  };
+  const flush = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); };
+  for (const firstOutcome of ['success', 'error']) {
+    for (const secondOutcome of ['success', 'error']) {
+      await test(`ajustes concurrentes ${firstOutcome}/${secondOutcome}: conserva privacidad y permite recuperarse`, async () => {
+        reset();
+        app.settings = { ...settings };
+        const toasts = [];
+        app.toast = (...args) => toasts.push(args);
+        const writes = [];
+        let persisted = { ...settings };
+        api.settingsSet = (next) => new Promise((resolve, reject) => {
+          writes.push({ next: { ...next }, resolve, reject });
+        });
+        const privacy = app.saveSettings({ send_reports: false });
+        const updates = app.saveSettings({ auto_update: false }, false);
+        await flush();
+        const concurrent = writes.length;
+        const complete = (index, outcome) => {
+          if (outcome === 'error') writes[index].reject(new Error(`Settings failure ${index}`));
+          else {
+            persisted = { ...writes[index].next };
+            writes[index].resolve(persisted);
+          }
+        };
+        complete(0, firstOutcome);
+        await privacy;
+        await flush();
+        assert.equal(writes.length, 2);
+        complete(1, secondOutcome);
+        await updates;
+        const expected = {
+          ...settings, send_reports: firstOutcome === 'error', auto_update: secondOutcome === 'error',
+        };
+        assert.deepEqual(app.settings, expected);
+        assert.deepEqual(persisted, expected);
+        assert.equal(concurrent, 1, 'solo una escritura puede estar en curso');
+        assert.deepEqual(toasts.filter(([kind]) => kind === 'error').map(([, text]) => text),
+          [firstOutcome, secondOutcome].flatMap((outcome, index) => outcome === 'error' ? [`Settings failure ${index}`] : []));
+        assert.equal(toasts.filter(([kind]) => kind === 'ok').length, secondOutcome === 'success' ? 1 : 0);
+        api.settingsSet = async (next) => next;
+        await app.saveSettings({ language: 'es' });
+        assert.deepEqual(app.settings, expected);
+      });
+    }
+  }
+  await test('ajustes: cada cambio usa la respuesta guardada y captura el parche al solicitarlo', async () => {
+    reset();
+    app.settings = { ...settings };
+    app.toast = () => {};
+    const writes = [];
+    api.settingsSet = (next) => new Promise((resolve) => writes.push({ next: { ...next }, resolve }));
+    const first = app.saveSettings({ report_endpoint: 'https://example.invalid/reports' });
+    const patch = { send_reports: false };
+    const second = app.saveSettings(patch);
+    patch.send_reports = true;
+    await flush();
+    writes[0].resolve({ ...writes[0].next, device_id: 'backend-device' });
+    await first;
+    await flush();
+    writes[1].resolve(writes[1].next);
+    await second;
+    assert.equal(app.settings.send_reports, false);
+    assert.equal(app.settings.report_endpoint, 'https://example.invalid/reports');
+    assert.equal(app.settings.device_id, 'backend-device');
+  });
+  await test('ajustes: cambios repetidos del mismo campo terminan con el ultimo valor solicitado', async () => {
+    reset();
+    app.settings = { ...settings };
+    app.toast = () => {};
+    const writes = [];
+    api.settingsSet = async (next) => { writes.push({ ...next }); return next; };
+    await Promise.all([
+      app.saveSettings({ send_reports: false }), app.saveSettings({ send_reports: true }),
+      app.saveSettings({ send_reports: false }),
+    ]);
+    assert.deepEqual(writes.map((next) => next.send_reports), [false, true, false]);
+    assert.equal(app.settings.send_reports, false);
+  });
+  await test('ajustes: fallo al refrescar Microsoft no pierde el guardado ni bloquea el cambio siguiente', async () => {
+    reset();
+    app.settings = { ...settings };
+    const toasts = [];
+    app.toast = (...args) => toasts.push(args);
+    api.settingsSet = async (next) => next;
+    api.appInfo = async () => { throw new Error('App metadata unavailable'); };
+    await Promise.all([
+      app.saveSettings({ azure_client_id: 'synthetic-client' }),
+      app.saveSettings({ send_reports: false }),
+    ]);
+    assert.equal(app.settings.azure_client_id, 'synthetic-client');
+    assert.equal(app.settings.send_reports, false);
+    assert.deepEqual(toasts, [['error', 'App metadata unavailable']]);
+  });
+  await test('ajustes: sin configuracion cargada no escribe datos', async () => {
+    reset();
+    app.settings = null;
+    api.settingsSet = async () => assert.fail('No debe crear una configuracion incompleta');
+    await app.saveSettings({ send_reports: false });
+    assert.equal(app.settings, null);
+  });
+
   const originalAccount = { id: 'original', kind: 'offline', name: 'Original', uuid: 'synthetic-original', added_at: 1 };
   const currentAccount = { ...originalAccount, id: 'current', name: 'Current', uuid: 'synthetic-current' };
   const deviceCode = (user_code) => ({ user_code, verification_uri: 'https://example.invalid', expires_in: 600, interval: 5 });
