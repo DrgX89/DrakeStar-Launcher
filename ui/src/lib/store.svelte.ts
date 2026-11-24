@@ -193,7 +193,7 @@ class Store {
     if (m.phase === 'working') this.msa = { ...this.msa, step: 'working', message: m.message };
     else if (m.phase === 'success') {
       this.msa.open = false;
-      this.loadAccounts();
+      this.loadAccounts().catch((e) => this.toast('error', errText(e)));
       this.toast('ok', m.message);
     } else if (m.phase === 'error') this.msa = { ...this.msa, step: 'error', message: m.message };
     else this.msa.open = false;
