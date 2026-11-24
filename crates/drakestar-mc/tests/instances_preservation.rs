@@ -188,6 +188,24 @@ fn legacy_solo_migration_preserves_other_instances() {
     assert_eq!(entries.len(), 2);
     let solo = f.store().get("slimefun-solo").unwrap();
     assert!(matches!(solo.target, Target::Local { .. }));
-    assert!(!solo.fused);
+    assert!(solo.fused);
+    assert_eq!(f.store().get("fixture").unwrap().name, "Fixture");
+}
+
+#[test]
+fn local_unfused_solo_migration_enables_embedded_fused() {
+    use drakestar_mc::instances::{Loader, Target};
+    let f = Fixture::new();
+    let mut legacy = f.instance();
+    legacy.id = "slimefun-solo".into();
+    legacy.mc = "26.2".into();
+    legacy.loader = Loader::Fabric;
+    legacy.target = Target::Local { port: 25570, lan: false };
+    legacy.fused = false;
+    let other = f.instance();
+    fs::write(f.path(), serde_json::to_vec(&vec![legacy, other]).unwrap()).unwrap();
+    let solo = f.store().get("slimefun-solo").unwrap();
+    assert!(matches!(solo.target, Target::Local { .. }));
+    assert!(solo.fused);
     assert_eq!(f.store().get("fixture").unwrap().name, "Fixture");
 }

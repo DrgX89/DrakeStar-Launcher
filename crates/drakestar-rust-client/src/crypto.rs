@@ -185,8 +185,8 @@ pub fn encryption_response_body(
     out
 }
 
-/// Long para `shouldAuthenticate`: en la respuesta moderna solo va el salt.
-/// El booleano se consume del request pero no se devuelve.
+// Long para `shouldAuthenticate`: en la respuesta moderna solo va el salt.
+// El booleano se consume del request pero no se devuelve.
 
 // ---------- primitivas de lectura/escritura del protocolo ----------
 

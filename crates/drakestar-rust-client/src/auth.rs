@@ -142,7 +142,7 @@ fn post_form(url: &str, params: &[(&str, &str)]) -> Result<Value, (AuthError, Op
             if let Ok(json_body) = r.into_json::<Value>() {
                 Err((AuthError::Parse("error de estado".into()), Some(json_body)))
             } else {
-                Err((AuthError::Network(format!("HTTP error")), None))
+                Err((AuthError::Network("HTTP error".into()), None))
             }
         }
         Err(ureq::Error::Transport(e)) => Err((AuthError::Network(e.to_string()), None)),

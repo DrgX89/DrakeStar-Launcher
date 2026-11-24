@@ -103,10 +103,10 @@ pub fn presets() -> Vec<Instance> {
             loader: Loader::Fabric,
             target: Target::Local { port: 25570, lan: false },
             performance: true,
-            fused: false,
+            fused: true,
             xmx_mb: 3072,
             extra_jvm: vec![],
-            note: "Servidor propio en tu equipo con el monolito DrakesPurpur (Slimefun y las suites, Java 25; pide ~6 GB de RAM libres): el launcher lo arranca y entras solo. Al jugar aceptas el EULA de Mojang (aka.ms/MinecraftEULA).".into(),
+            note: "Servidor propio en tu equipo con el monolito DrakesPurpur embebido en el cliente con Fused (Slimefun y las suites, Java 25; pide ~6 GB de RAM libres): el launcher lo arranca y entras solo. Al jugar aceptas el EULA de Mojang (aka.ms/MinecraftEULA).".into(),
         },
         Instance {
             id: "vanilla-latest".into(),
@@ -154,8 +154,12 @@ impl Instances {
             }
             Err(e) => return Err(e.into()),
         };
-        // la plantilla antigua de Slimefun solitario (Fused alfa en el menu) pasa al servidor local
-        if let Some(x) = v.iter_mut().find(|x| x.id == "slimefun-solo" && x.fused && x.target == Target::Menu) {
+        // la plantilla antigua de Slimefun solitario (Fused alfa en el menu, o servidor local antes del paso 5c) pasa al servidor local con Fused embebido
+        if let Some(x) = v.iter_mut().find(|x| {
+            x.id == "slimefun-solo"
+                && ((x.fused && x.target == Target::Menu)
+                    || (!x.fused && matches!(x.target, Target::Local { .. })))
+        }) {
             if let Some(p) = presets().into_iter().find(|p| p.id == "slimefun-solo") {
                 *x = p;
                 self.save(&v)?;
