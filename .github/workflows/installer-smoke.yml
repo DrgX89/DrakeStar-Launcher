@@ -1,0 +1,82 @@
+name: Installer smoke
+
+# Instala los instaladores PUBLICADOS en maquinas limpias (runners efimeros de GitHub) y comprueba el
+# flujo del actualizador: firmas de latest.json contra la pubkey de tauri.conf.json.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Etiqueta a probar (vacio = latest)'
+        required: false
+  pull_request:
+    paths: ['.github/workflows/installer-smoke.yml', 'tools/verify_updater_release.py']
+
+permissions:
+  contents: read
+
+jobs:
+  updater-signatures:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install pynacl
+      - name: Verificar firmas de latest.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag || github.event.release.tag_name }}
+        run: |
+          if [ -n "$TAG" ]; then
+            gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p latest.json -D /tmp
+            python3 tools/verify_updater_release.py --json /tmp/latest.json
+          else
+            python3 tools/verify_updater_release.py
+          fi
+
+  windows-clean-install:
+    runs-on: windows-latest
+    steps:
+      - name: Descargar MSI y NSIS
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag || github.event.release.tag_name }}
+        run: |
+          TAG=${TAG:-$(gh release view -R "$GITHUB_REPOSITORY" --json tagName -q .tagName)}
+          gh release download $TAG -R "$GITHUB_REPOSITORY" -p '*.msi' -p '*-setup.exe' -D dl && ls -l dl
+
+      - name: MSI silencioso (por maquina) + desinstalar
+        shell: pwsh
+        run: |
+          $msi = (Get-ChildItem dl\*.msi)[0].FullName
+          $p = Start-Process msiexec -ArgumentList "/i `"$msi`" /qn /norestart /l*v msi-install.log" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { Get-Content msi-install.log -Tail 40; throw "msiexec /i exit $($p.ExitCode)" }
+          $exe = Get-ChildItem "$env:ProgramFiles\DrakeStar" -Filter *.exe -Recurse | Select-Object -First 1
+          if (-not $exe) { throw 'MSI no dejo ejecutable en Program Files\DrakeStar' }
+          "instalado: $($exe.FullName) $($exe.Length)B"
+          $p = Start-Process msiexec -ArgumentList "/x `"$msi`" /qn /norestart /l*v msi-uninstall.log" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "msiexec /x exit $($p.ExitCode)" }
+          if (Test-Path $exe.FullName) { throw 'el ejecutable sigue tras desinstalar' }
+
+      - name: NSIS silencioso (/S, installMode both) + desinstalar
+        shell: pwsh
+        run: |
+          $setup = (Get-ChildItem dl\*-setup.exe)[0].FullName
+          $p = Start-Process $setup -ArgumentList '/S' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "setup /S exit $($p.ExitCode)" }
+          # installMode "both": con admin (runner) puede ir a Program Files o al perfil del usuario
+          $dir = @("$env:LOCALAPPDATA\DrakeStar", "$env:LOCALAPPDATA\Programs\DrakeStar", "$env:ProgramFiles\DrakeStar") | Where-Object { Test-Path "$_\uninstall.exe" } | Select-Object -First 1
+          if (-not $dir) { Get-ChildItem $env:LOCALAPPDATA, $env:ProgramFiles -Filter drakestar*.exe -Recurse -Depth 3 -ErrorAction SilentlyContinue | ForEach-Object FullName; throw 'NSIS no dejo uninstall.exe en rutas conocidas' }
+          $exe = Get-ChildItem $dir -Filter drakestar*.exe | Select-Object -First 1
+          if (-not $exe) { throw "NSIS no dejo ejecutable en $dir" }
+          "instalado: $($exe.FullName) $($exe.Length)B"
+          $p = Start-Process "$dir\uninstall.exe" -ArgumentList '/S' -Wait -PassThru
+          Start-Sleep 5
+          if (Test-Path $exe.FullName) { throw 'el ejecutable sigue tras desinstalar' }
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: msi-logs
+          path: '*.log'
