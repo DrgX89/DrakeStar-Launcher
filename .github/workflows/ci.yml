@@ -28,6 +28,13 @@ jobs:
       - name: svelte-check + vite build
         run: npm run build
         working-directory: ui
+      - name: Instalar Chromium para las regresiones de interfaz
+        run: npx playwright install --with-deps chromium
+        working-directory: ui
+      - name: Catalogo y flujos Starling en Chromium
+        run: npm run test:browser
+        working-directory: ui
+        timeout-minutes: 10
       - uses: actions/upload-artifact@v4
         with: { name: ui-dist, path: ui/dist }
 

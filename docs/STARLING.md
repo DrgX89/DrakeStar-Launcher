@@ -8,6 +8,13 @@ Implementación independiente; fuentes y avisos en [THIRD_PARTY_NOTICES](../THIR
 - [x] Abrir carpeta de instancia desde Jugar, Instancias, Catálogo y el diagnóstico de fallo (más carpetas de datos y registros en Ajustes/Diagnóstico); los errores del explorador se muestran.
 - [x] Suite automatizada Chromium + Svelte (`npm run test:catalog` 20/20 y `npm run test:starling` 5/5) para catálogo Modrinth, flujo de login Ely.by con y sin 2FA, Diagnóstico/recuperación Fused y apertura de carpetas. (La prueba interactiva con una cuenta Ely.by real queda como validación manual de usuario final fuera del VPS).
 
+El job `frontend` del CI instala Chromium y ejecuta ambas suites con
+`npm run test:browser`, además de las pruebas del estado de diagnóstico que
+ya incluye `npm run build`. Las suites de navegador se ejecutan una a la vez
+y bloquean el job si fallan. Para reproducirlas localmente: `cd ui`, `npm ci`,
+`npx playwright install chromium` y `npm run test:browser`. Usan un backend
+sintético: no validan una cuenta real ni compatibilidad con Android.
+
 ## Uso y límites
 
 En **Catálogo**, elige instancia y contenido, busca e instala. Se instalan releases compatibles y sus dependencias requeridas, incluidas las versiones exactas indicadas por Modrinth. Shaders requiere Fabric y añade Iris; se activa en el menú de vídeo del juego. Los resource packs se activan en el menú de recursos. Vanilla admite resource packs.

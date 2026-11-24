@@ -13,6 +13,7 @@
     "test:diagnostics": "node tests/diagnostics.mjs",
     "test:catalog": "node --test tests/catalog.mjs",
     "test:starling": "node --test tests/starling_ui.mjs",
+    "test:browser": "node --test --test-concurrency=1 tests/catalog.mjs tests/starling_ui.mjs",
     "preview": "vite preview",
     "tauri": "tauri"
   },
