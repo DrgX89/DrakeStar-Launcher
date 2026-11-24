@@ -34,7 +34,7 @@
     e.preventDefault();
     const name = draft.name.trim();
     const target: Target =
-      tkind === 'local' ? { kind: 'local', port: tport, lan: tlan } :
+      tkind === 'local' ? { kind: 'local', port: Math.trunc(Number(tport)) || 25570, lan: tlan } :
       tkind === 'server' ? { kind: 'server', address: taddr.trim() } :
       tkind === 'world' ? { kind: 'world', name: tworld.trim() } :
       { kind: 'menu' };
@@ -90,12 +90,14 @@
     {:else if tkind === 'world'}
       <label class="field"><span>{t('f.world')}</span><input type="text" bind:value={tworld} required /></label>
     {:else if tkind === 'local'}
+      <div class="field"><span>{t('f.local_net')}</span>
+        <div class="seg">
+          <button type="button" class:on={!tlan} onclick={() => (tlan = false)}>{t('f.local_only')}</button>
+          <button type="button" class:on={tlan} onclick={() => (tlan = true)}>{t('f.local_lan')}</button>
+        </div>
+        <span class="small muted">{tlan ? t('f.local_lan_hint') : t('f.local_only_hint')}</span>
+      </div>
       <label class="field"><span>{t('f.port')}</span><input type="number" min="1024" max="65535" bind:value={tport} required /></label>
-      <label class="switch">
-        <input type="checkbox" bind:checked={tlan} />
-        <span class="track"></span>
-        <span class="txt"><span>{t('f.lan')}</span><span class="small muted">{t('f.lan_hint')}</span></span>
-      </label>
     {/if}
 
     <label class="switch">
