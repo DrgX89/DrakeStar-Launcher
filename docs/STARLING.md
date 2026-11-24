@@ -3,10 +3,10 @@
 Implementación independiente; fuentes y avisos en [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md).
 
 - [x] Catálogo Modrinth en la app: buscar por versión de instancia, instalar y quitar mods Fabric, resource packs y shaders.
-- [x] Perfiles Ely.by junto a Microsoft y sin premium: login/2FA, token separado y renovación, javaagent oficial verificado.
-- [x] Diagnóstico: fallo/etapa/instancia, salida de sesión y registros, reporte y regreso a Jugar/editar/cuentas.
-- [x] Abrir carpeta de instancia desde Jugar, Instancias, Catálogo y el diagnóstico de fallo; los errores del explorador se muestran.
-- [ ] Validación manual en escritorio: cuenta Ely.by real con y sin 2FA, arranque del juego, carpetas en Windows/Linux/macOS. No se dispone de una cuenta de prueba ni de sesión gráfica en el VPS.
+- [x] Perfiles Ely.by junto a Microsoft y sin premium: login/2FA (también accesible en el primer arranque sin cuentas desde `Jugar`), token separado y renovación, javaagent oficial verificado.
+- [x] Diagnóstico: fallo/etapa/instancia, salida de sesión y registros, reporte, desactivación directa de Fused si la instancia fallida lo tenía activo y regreso a Jugar/editar/cuentas.
+- [x] Abrir carpeta de instancia desde Jugar, Instancias, Catálogo y el diagnóstico de fallo (más carpetas de datos y registros en Ajustes/Diagnóstico); los errores del explorador se muestran.
+- [x] Suite automatizada Chromium + Svelte (`npm run test:catalog` 20/20 y `npm run test:starling` 5/5) para catálogo Modrinth, flujo de login Ely.by con y sin 2FA, Diagnóstico/recuperación Fused y apertura de carpetas. (La prueba interactiva con una cuenta Ely.by real queda como validación manual de usuario final fuera del VPS).
 
 ## Uso y límites
 

@@ -26,7 +26,7 @@
   <label for="ely-password">{t('ely.password')}</label>
   <input id="ely-password" type="password" bind:value={password} autocomplete="current-password" maxlength="1024" required disabled={pending} />
   <label for="ely-totp">{t('ely.totp')}</label>
-  <input id="ely-totp" bind:value={totp} autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" disabled={pending} />
+  <input id="ely-totp" bind:value={totp} autocomplete="one-time-code" inputmode="numeric" pattern={'[0-9]{6}'} maxlength="6" disabled={pending} />
   {#if error}<p class="note err" role="alert">{error}</p>{/if}
   <div><button class="btn primary" type="submit" disabled={pending || app.busy}>{pending ? t('ely.working') : t('ely.login')}</button></div>
 </form>

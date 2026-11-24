@@ -2,6 +2,7 @@
   import { untrack } from 'svelte';
   import { api } from '../lib/api';
   import Icon from '../components/Icon.svelte';
+  import { errText } from '../lib/format';
   import { currentLang } from '../lib/i18n.svelte';
   import { t } from '../lib/i18n.svelte';
   import { app } from '../lib/store.svelte';
@@ -56,8 +57,8 @@
         </select>
       </label>
       <div class="row">
-        <button class="btn" type="button" onclick={() => api.openFolder('data')}><Icon name="folder" /> {t('set.open_data')}</button>
-        <button class="btn" type="button" onclick={() => api.openFolder('logs')}><Icon name="folder" /> {t('set.open_logs')}</button>
+        <button class="btn" type="button" onclick={() => api.openFolder('data').catch((e) => app.toast('error', errText(e)))}><Icon name="folder" /> {t('set.open_data')}</button>
+        <button class="btn" type="button" onclick={() => api.openFolder('logs').catch((e) => app.toast('error', errText(e)))}><Icon name="folder" /> {t('set.open_logs')}</button>
       </div>
     </section>
 

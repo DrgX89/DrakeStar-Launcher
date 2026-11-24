@@ -1,5 +1,6 @@
 <script lang="ts">
   import Avatar from '../components/Avatar.svelte';
+  import ElybyForm from '../components/ElybyForm.svelte';
   import Icon from '../components/Icon.svelte';
   import OfflineForm from '../components/OfflineForm.svelte';
   import Progress from '../components/Progress.svelte';
@@ -27,6 +28,11 @@
           <h2>{t('acc.add_off')}</h2>
           <p class="small muted">{t('acc.add_off_hint')}</p>
           <OfflineForm />
+        </div>
+        <div class="card stack">
+          <h2>Ely.by</h2>
+          <p class="small muted">{t('ely.hint')}</p>
+          <ElybyForm />
         </div>
       </div>
     </section>

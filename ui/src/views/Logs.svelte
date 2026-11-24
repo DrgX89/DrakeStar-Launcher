@@ -53,6 +53,7 @@
         <button class="btn primary" type="button" disabled={app.busy} onclick={() => { if (instance) app.select(instance.id); app.view = 'play'; }}>{t('diag.back')}</button>
         <button class="btn" type="button" disabled={!app.recoveryInstance} onclick={() => { if (app.recoveryInstance) app.select(app.recoveryInstance.id); app.view = 'instances'; }}>{t('ins.edit')}</button>
         <button class="btn" type="button" onclick={() => (app.view = 'accounts')}>{t('nav.accounts')}</button>
+        {#if app.recoveryInstance?.fused}<button class="btn" type="button" onclick={() => app.disableFused()}>{t('play.disable_fused')}</button>{/if}
         {#if instance}<button class="btn" type="button" onclick={() => app.openInstanceFolder(instance.id)}><Icon name="folder" /> {t('common.open_folder')}</button>{/if}
       </div>
     </section>
@@ -66,7 +67,7 @@
     </div>
     <div class="row">
       <button class="btn sm" type="button" onclick={load}><Icon name="refresh" /> {t('log.refresh')}</button>
-      <button class="btn sm ghost" type="button" onclick={() => api.openFolder('logs')}><Icon name="folder" /> {t('common.open_folder')}</button>
+      <button class="btn sm ghost" type="button" onclick={() => api.openFolder('logs').catch((e) => app.toast('error', errText(e)))}><Icon name="folder" /> {t('common.open_folder')}</button>
     </div>
   </div>
 
