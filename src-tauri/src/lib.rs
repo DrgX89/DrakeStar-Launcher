@@ -418,14 +418,43 @@ fn game_kill(st: State<'_, AppState>) {
 }
 
 // ---------- soporte y logs ----------
+fn newest_existing_file(candidates: &[std::path::PathBuf]) -> Option<std::path::PathBuf> {
+    candidates
+        .iter()
+        .filter(|p| p.is_file())
+        .max_by_key(|p| p.metadata().and_then(|m| m.modified()).ok())
+        .cloned()
+}
+
+/// Directorio activo de logs/crashes de una instancia (elige entre la raiz JVM y `horizon-home/` segun la sesion mas reciente).
+fn instance_game_dir(dirs: &Dirs, id: &str) -> std::path::PathBuf {
+    let base = dirs.instance(id);
+    let hz_home = drakestar_mc::horizon::paths(dirs, id).home;
+    let base_log = newest_existing_file(&[base.join("logs/launcher-session.log"), base.join("logs/latest.log")]);
+    let hz_log = newest_existing_file(&[hz_home.join("logs/launcher-session.log"), hz_home.join("logs/latest.log")]);
+    match (base_log, hz_log) {
+        (Some(b), Some(h)) => {
+            let bt = b.metadata().and_then(|m| m.modified()).ok();
+            let ht = h.metadata().and_then(|m| m.modified()).ok();
+            if ht > bt { hz_home } else { base }
+        }
+        (None, Some(_)) => hz_home,
+        _ => base,
+    }
+}
+
+fn game_log_path(dirs: &Dirs, id: &str) -> std::path::PathBuf {
+    let gdir = instance_game_dir(dirs, id);
+    let logs = gdir.join("logs");
+    let session = logs.join("launcher-session.log");
+    let latest = logs.join("latest.log");
+    newest_existing_file(&[session.clone(), latest]).unwrap_or(session)
+}
+
 #[tauri::command]
 fn logs_read(st: State<'_, AppState>, source: String, instance: Option<String>, max_lines: usize) -> Vec<String> {
     let path = match (source.as_str(), instance) {
-        ("game", Some(id)) if safe_id(&id) => {
-            let logs = st.dirs.instance(&id).join("logs");
-            let session = logs.join("launcher-session.log");
-            if session.exists() { session } else { logs.join("latest.log") }
-        },
+        ("game", Some(id)) if safe_id(&id) => game_log_path(&st.dirs, &id),
         _ => support::log_dir(&st.dirs).join("launcher.log"),
     };
     let path = if source == "launcher" {
@@ -452,7 +481,7 @@ async fn support_report(st: State<'_, AppState>, instance: Option<String>, send:
             instance: inst.as_ref().map(|i| i.id.clone()),
             minecraft: inst.as_ref().map(|i| i.mc.clone()),
             exit_code: None,
-            game_dir: inst.as_ref().map(|i| dirs.instance(&i.id)),
+            game_dir: inst.as_ref().map(|i| instance_game_dir(&dirs, &i.id)),
         };
         let zip = support::bundle(&dirs, &ctx).map_err(s)?;
         let mut sent = false;
@@ -467,12 +496,16 @@ async fn support_report(st: State<'_, AppState>, instance: Option<String>, send:
     .map_err(s)?
 }
 
-/// Carpeta a abrir; una instancia debe existir (no se crean carpetas huérfanas ni se cae a la raíz con un id inválido).
+/// Carpeta a abrir; una instancia debe existir en el catalogo o en disco (no se crean carpetas huerfanas para ids inexistentes ni se cae a la raiz con un id invalido).
 fn folder_path(dirs: &Dirs, kind: &str, id: Option<&str>) -> Res<std::path::PathBuf> {
     let path = match (kind, id) {
         ("instance", Some(id)) if safe_id(id) => {
             let p = dirs.instance(id);
-            return if p.is_dir() { Ok(p) } else { Err(format!("la instancia '{id}' no existe")) };
+            if !p.is_dir() && Instances::new(dirs).get(id).is_err() {
+                return Err(format!("la instancia '{id}' no existe"));
+            }
+            std::fs::create_dir_all(&p).map_err(s)?;
+            return Ok(p);
         }
         ("instance", _) => return Err("id de instancia inválido".into()),
         ("logs", _) => support::log_dir(dirs),
@@ -551,9 +584,48 @@ mod tests {
         assert!(!dirs.instance("fantasma").exists());
         assert!(folder_path(&dirs, "instance", Some("../x")).is_err());
         assert!(folder_path(&dirs, "instance", None).is_err());
+        // Una instancia registrada en instances.json (aun antes del 1er JUGAR) crea y devuelve su carpeta:
+        assert_eq!(folder_path(&dirs, "instance", Some("drakescraft")).unwrap(), dirs.instance("drakescraft"));
+        assert!(dirs.instance("drakescraft").is_dir());
         std::fs::create_dir_all(dirs.instance("t2")).unwrap();
         assert_eq!(folder_path(&dirs, "instance", Some("t2")).unwrap(), dirs.instance("t2"));
         assert!(folder_path(&dirs, "support", None).unwrap().is_dir());
+        let _ = std::fs::remove_dir_all(tmp);
+    }
+
+    #[test]
+    fn game_log_and_game_dir_resolve_horizon_home_when_newer_or_only_present() {
+        let tmp = std::env::temp_dir().join(format!("dsl-hz-logs-{}", std::process::id()));
+        let dirs = Dirs::new(tmp.clone());
+        let id = "drakescraft";
+        let base = dirs.instance(id);
+        let hz_home = drakestar_mc::horizon::paths(&dirs, id).home;
+
+        // 1) Sin logs: apunta por defecto al directorio JVM de la instancia
+        assert_eq!(instance_game_dir(&dirs, id), base);
+        assert_eq!(game_log_path(&dirs, id), base.join("logs/launcher-session.log"));
+
+        // 2) Solo existe una sesion de Horizon en horizon-home/logs/
+        std::fs::create_dir_all(hz_home.join("logs")).unwrap();
+        let hz_session = hz_home.join("logs/launcher-session.log");
+        std::fs::write(&hz_session, "horizon native boot\n").unwrap();
+        assert_eq!(instance_game_dir(&dirs, id), hz_home);
+        assert_eq!(game_log_path(&dirs, id), hz_session);
+
+        // 3) Si luego corre una sesion JVM en instances/<id>/logs/, toma la mas reciente
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        std::fs::create_dir_all(base.join("logs")).unwrap();
+        let jvm_session = base.join("logs/launcher-session.log");
+        std::fs::write(&jvm_session, "jvm boot\n").unwrap();
+        assert_eq!(instance_game_dir(&dirs, id), base);
+        assert_eq!(game_log_path(&dirs, id), jvm_session);
+
+        // 4) Si vuelve a correr Horizon, vuelve a preferir horizon-home
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        std::fs::write(&hz_session, "horizon second run\n").unwrap();
+        assert_eq!(instance_game_dir(&dirs, id), hz_home);
+        assert_eq!(game_log_path(&dirs, id), hz_session);
+
         let _ = std::fs::remove_dir_all(tmp);
     }
 }
