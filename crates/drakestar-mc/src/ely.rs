@@ -166,6 +166,42 @@ pub fn agent_arg(path: &std::path::Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn read_http_request(stream: impl std::io::Read) -> String {
+        use std::io::{BufRead, Read};
+        let mut reader = std::io::BufReader::new(stream);
+        let mut request = String::new();
+        let mut content_length = None;
+        loop {
+            let mut line = String::new();
+            assert!(reader.read_line(&mut line).unwrap() > 0, "cabeceras incompletas");
+            request.push_str(&line);
+            assert!(request.len() <= 8192, "cabeceras excesivas en fixture");
+            if line == "\r\n" {
+                break;
+            }
+            if let Some((name, value)) = line.split_once(':') {
+                if name.eq_ignore_ascii_case("content-length") {
+                    content_length = Some(value.trim().parse::<usize>().unwrap());
+                }
+            }
+        }
+        let length = content_length.expect("falta Content-Length en fixture");
+        assert!(length <= 4096, "cuerpo excesivo en fixture");
+        let mut body = vec![0; length];
+        reader.read_exact(&mut body).unwrap();
+        request.push_str(std::str::from_utf8(&body).unwrap());
+        request
+    }
+
+    #[test]
+    fn fixture_reads_body_after_separate_headers() {
+        use std::io::{Cursor, Read};
+        let headers = b"POST /auth/authenticate HTTP/1.1\r\ncontent-length: 2\r\n\r\n";
+        let request = read_http_request(Cursor::new(headers).chain(Cursor::new(b"{}")));
+        assert!(request.ends_with("\r\n\r\n{}"));
+    }
+
     #[test]
     fn validates_identity_without_exposing_tokens() {
         let response = |id: &str| Response {
@@ -193,7 +229,7 @@ mod tests {
 
     #[test]
     fn loopback_yggdrasil_authenticate_and_refresh() {
-        use std::io::{Read, Write};
+        use std::io::Write;
         use std::net::TcpListener;
 
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
@@ -203,9 +239,8 @@ mod tests {
         let server = std::thread::spawn(move || {
             for step in 0..3 {
                 let (mut stream, _) = listener.accept().unwrap();
-                let mut buf = [0u8; 4096];
-                let n = stream.read(&mut buf).unwrap();
-                let req = String::from_utf8_lossy(&buf[..n]);
+                stream.set_read_timeout(Some(std::time::Duration::from_secs(5))).unwrap();
+                let req = read_http_request(&mut stream);
                 let (status, body) = match step {
                     0 => {
                         assert!(req.starts_with("POST /auth/authenticate "));

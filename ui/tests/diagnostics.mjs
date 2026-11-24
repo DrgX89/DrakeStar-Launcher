@@ -1,6 +1,6 @@
 // Prueba el estado Svelte compilado para cliente, sin red ni procesos de juego.
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -10,25 +10,22 @@ import { build } from 'vite';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const out = await mkdtemp(join(tmpdir(), 'drakestar-diagnostics-'));
 try {
+  const entry = join(out, 'entry.mjs');
+  await writeFile(entry,
+    `export { app } from ${JSON.stringify(join(root, 'src/lib/store.svelte.ts'))};
+     export { api } from ${JSON.stringify(join(root, 'src/lib/api.ts'))};`);
   await build({
     root,
     configFile: join(root, 'vite.config.ts'),
     logLevel: 'error',
-    plugins: [{
-      name: 'diagnostics-entry',
-      resolveId: (id) => id === 'diagnostics-entry' ? '\0diagnostics-entry' : null,
-      load: (id) => id === '\0diagnostics-entry' ?
-        `export { app } from ${JSON.stringify(join(root, 'src/lib/store.svelte.ts'))};
-         export { api } from ${JSON.stringify(join(root, 'src/lib/api.ts'))};` : null,
-    }],
     build: {
-      outDir: out,
+      outDir: join(out, 'build'),
       emptyOutDir: true,
       minify: false,
-      lib: { entry: 'diagnostics-entry', formats: ['es'], fileName: () => 'state.mjs' },
+      lib: { entry, formats: ['es'], fileName: () => 'state.mjs' },
     },
   });
-  const { app, api } = await import(pathToFileURL(join(out, 'state.mjs')).href);
+  const { app, api } = await import(pathToFileURL(join(out, 'build/state.mjs')).href);
   const originalApi = { ...api };
   const first = { id: 'first', name: 'First', mc: '26.2', target: { kind: 'menu' } };
   const second = { id: 'second', name: 'Second', mc: '26.2', target: { kind: 'server', address: 'example.invalid' } };
