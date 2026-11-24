@@ -14,7 +14,7 @@
 
 use crate::proto;
 use serde_json::Value;
-use std::io::{BufRead, Read, Write};
+use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::time::Duration;
 
@@ -238,17 +238,22 @@ pub fn run(cfg: &Config, out: &mut dyn FnMut(&str)) -> Result<(), Error> {
     // No se manda un paquete de desconexion porque tras el cifrado habria que
     // cifrarlo tambien, y eso significaria compartir el estado del túnel con este
     // hilo; el servidor interpreta el cierre igual.
-    let quit = tcp.try_clone()?;
-    std::thread::spawn(move || {
-        let stdin = std::io::stdin();
-        for line in stdin.lock().lines().map_while(Result::ok) {
-            let cmd = line.trim();
-            if cmd == "quit" || cmd == "stop" || cmd == "exit" {
-                let _ = quit.shutdown(std::net::Shutdown::Both);
-                return;
+    // En tests unitarios no se lee stdin del runner para no bloquear el proceso.
+    #[cfg(not(test))]
+    {
+        use std::io::BufRead;
+        let quit = tcp.try_clone()?;
+        std::thread::spawn(move || {
+            let stdin = std::io::stdin();
+            for line in stdin.lock().lines().map_while(Result::ok) {
+                let cmd = line.trim();
+                if cmd == "quit" || cmd == "stop" || cmd == "exit" {
+                    let _ = quit.shutdown(std::net::Shutdown::Both);
+                    return;
+                }
             }
-        }
-    });
+        });
+    }
 
     // flujo posterior (configuracion/play): decodifica lo esencial (KeepAlive, Acknowledged)
     // para mantener la conexion viva de forma indefinida y no ser expulsado por timeout.

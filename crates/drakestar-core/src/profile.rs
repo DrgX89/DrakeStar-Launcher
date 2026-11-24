@@ -84,19 +84,14 @@ pub struct Profile {
 }
 
 /// Backend de renderizado visual del cliente Minecraft.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum GraphicsBackend {
     /// OpenGL nativo (estándar de Minecraft, Sodium, Iris Shaders).
+    #[default]
     Opengl,
     /// Vulkan nativo (VulkanMod, pipeline de bajo overhead para GPUs modernas).
     Vulkan,
-}
-
-impl Default for GraphicsBackend {
-    fn default() -> Self {
-        Self::Opengl
-    }
 }
 
 /// Opciones de pantalla y aceleración gráfica para Minecraft.

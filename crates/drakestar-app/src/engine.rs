@@ -55,7 +55,7 @@ extern "C" fn find_hook(userdata: *mut c_void, name: *const c_char) -> *const c_
     };
     if state(userdata).published.lock().unwrap().iter().any(|h| h == s) {
         // puntero no nulo = "existe". Un motor real devolveria el callback.
-        1 as *const c_void
+        std::ptr::dangling::<c_void>()
     } else {
         std::ptr::null()
     }

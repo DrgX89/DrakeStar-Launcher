@@ -279,7 +279,7 @@ impl Service {
         if p.mode != Mode::DrakesJava {
             return Err(AppError::Invalid(format!("'{id}' no es un perfil drakes-java")));
         }
-        self.procs.stop(id, Some("stop"), Duration::from_secs(30)).map_err(AppError::from)
+        self.procs.stop(id, Some("stop"), Duration::from_secs(30))
     }
 
     /// Informe del cargador de mods, sin aplicar nada.

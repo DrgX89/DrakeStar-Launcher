@@ -138,17 +138,16 @@ impl ServerDir {
                         let file = e.file_name().to_string_lossy().to_string();
                         let (name, enabled) = if let Some(n) = file.strip_suffix(".jar") {
                             (n.to_string(), true)
-                        } else if let Some(n) = file.strip_suffix(".jar.disabled") {
-                            (n.to_string(), false)
                         } else {
-                            return None;
+                            let n = file.strip_suffix(".jar.disabled")?;
+                            (n.to_string(), false)
                         };
                         Some(PluginInfo { file, name, enabled, size: e.metadata().map(|m| m.len()).unwrap_or(0) })
                     })
                     .collect()
             })
             .unwrap_or_default();
-        v.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+        v.sort_by_key(|a| a.name.to_lowercase());
         v
     }
 

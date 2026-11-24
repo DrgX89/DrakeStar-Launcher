@@ -16,10 +16,7 @@ pub fn component_for(mode: Mode) -> Option<&'static str> {
 }
 
 pub fn platform() -> String {
-    let os = match std::env::consts::OS {
-        "macos" => "macos",
-        o => o,
-    };
+    let os = std::env::consts::OS;
     format!("{os}-{}", std::env::consts::ARCH)
 }
 

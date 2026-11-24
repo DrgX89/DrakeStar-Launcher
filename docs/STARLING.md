@@ -58,7 +58,7 @@ El catálogo guarda el índice antes de borrar el archivo propio. Si falla el
 Un cierre abrupto entre ambos pasos puede dejar un archivo conservado fuera del
 índice; debe revisarse en la carpeta de la instancia. La preparación conserva el
 tipo de cuenta elegido para añadir el agente Ely.by aunque se retire el perfil
-durante las descargas. Este último caso requiere todavía ensayo gráfico.
+durante las descargas (`play::tests::with_ely_preserves_agent_even_if_profile_removed_during_downloads`), y `authlib-injector` 1.2.8 se ha verificado en ejecución gráfica real con Minecraft 26.2 (Java 25, bytecode major 69) bajo Xvfb/llvmpipe contra un servidor Yggdrasil loopback (`GET /` y `/sessionserver/session/minecraft/profile/<uuid>`, transformando `net.minecraft.client.main.Main`, `YggdrasilEnvironment` y `YggdrasilServicesKeyInfo` sin excepciones).
 
 ## Validación reproducible
 

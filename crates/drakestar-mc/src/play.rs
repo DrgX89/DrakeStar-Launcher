@@ -136,14 +136,104 @@ pub fn prepare(d: &Dirs, inst: &Instance, account_id: &str, client_id: &str, sin
     Ok(Prepared { plan, session, game_dir, warnings, java_major: installed.java_major, version_id, server: local })
 }
 
-fn with_ely(d: &Dirs, account: &crate::accounts::Account, mut o: Options, sink: &dyn ProgressSink) -> McResult<Options> {
+fn with_ely(d: &Dirs, account: &crate::accounts::Account, o: Options, sink: &dyn ProgressSink) -> McResult<Options> {
+    with_ely_agent(account, o, sink, || crate::ely::ensure_agent(d))
+}
+
+fn with_ely_agent(
+    account: &crate::accounts::Account,
+    mut o: Options,
+    sink: &dyn ProgressSink,
+    ensure_agent: impl FnOnce() -> McResult<std::path::PathBuf>,
+) -> McResult<Options> {
     if account.kind == crate::accounts::Kind::Elyby {
         sink.stage("elyby", "Preparando autenticación Ely.by");
-        o.extra_jvm.push(crate::ely::agent_arg(&crate::ely::ensure_agent(d)?));
+        o.extra_jvm.push(crate::ely::agent_arg(&ensure_agent()?));
     }
     Ok(o)
 }
 
 fn has_jar(dir: &std::path::Path, prefix: &str) -> bool {
     std::fs::read_dir(dir).map(|rd| rd.flatten().any(|e| e.file_name().to_string_lossy().starts_with(prefix))).unwrap_or(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::accounts::{Accounts, Kind};
+    use crate::ely::Token;
+    use std::sync::Mutex;
+
+    struct RecordingSink {
+        stages: Mutex<Vec<(String, String)>>,
+    }
+
+    impl RecordingSink {
+        fn new() -> Self {
+            Self { stages: Mutex::new(Vec::new()) }
+        }
+    }
+
+    impl ProgressSink for RecordingSink {
+        fn stage(&self, id: &str, text: &str) {
+            self.stages.lock().unwrap().push((id.to_string(), text.to_string()));
+        }
+        fn fraction(&self, _: f32) {}
+        fn log(&self, _: &str) {}
+    }
+
+    #[test]
+    fn with_ely_preserves_agent_even_if_profile_removed_during_downloads() {
+        let root = std::env::temp_dir().join(format!(
+            "drakestar-play-ely-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let d = Dirs::new(&root);
+        let session = Session {
+            name: "AlexEly".into(),
+            uuid: "069a79f444e94726a5befca90e38aaf5".into(),
+            access_token: "fixture-access-token".into(),
+            user_type: "mojang".into(),
+            xuid: None,
+            client_id: None,
+        };
+        let token = Token {
+            access_token: session.access_token.clone(),
+            client_token: "fixture-client-token".into(),
+        };
+        let created = Accounts::new(&d).add_elyby(&session, &token).unwrap();
+        // Captura al inicio de play::prepare antes de las descargas:
+        let snapshot = Accounts::new(&d).get(&created.id).expect("cuenta presente al iniciar");
+        assert_eq!(snapshot.kind, Kind::Elyby);
+
+        // Durante las descargas el usuario retira la cuenta del listado en disco:
+        Accounts::new(&d).remove(&created.id).unwrap();
+        assert!(Accounts::new(&d).get(&created.id).is_none());
+
+        let sink = RecordingSink::new();
+        let fake_agent = d.libraries().join("authlib-injector/authlib-injector-1.2.8.jar");
+        let opts = with_ely_agent(&snapshot, Options::default(), &sink, || Ok(fake_agent.clone())).unwrap();
+        assert_eq!(
+            opts.extra_jvm,
+            vec![format!("-javaagent:{}=ely.by", fake_agent.display())]
+        );
+        let stages = sink.stages.lock().unwrap();
+        assert_eq!(stages.len(), 1);
+        assert_eq!(stages[0].0, "elyby");
+
+        // Las cuentas sin premium o Microsoft no añaden authlib-injector:
+        let offline = Accounts::new(&d).add_offline("Invitado").unwrap();
+        let sink_off = RecordingSink::new();
+        let opts_off = with_ely_agent(&offline, Options::default(), &sink_off, || {
+            panic!("no debe invocar ensure_agent para cuentas no Ely.by")
+        })
+        .unwrap();
+        assert!(opts_off.extra_jvm.is_empty());
+        assert!(sink_off.stages.lock().unwrap().is_empty());
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
 }

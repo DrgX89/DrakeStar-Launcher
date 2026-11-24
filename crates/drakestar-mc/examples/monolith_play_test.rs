@@ -14,7 +14,7 @@ impl ProgressSink for Console {
         println!("[stage:{id}] {text}");
     }
     fn fraction(&self, f: f32) {
-        if (f * 100.0) as u32 % 25 == 0 {
+        if ((f * 100.0) as u32).is_multiple_of(25) {
             println!("   {:.0}%", f * 100.0);
         }
     }
