@@ -18,7 +18,7 @@ jobs:
         run: python3 tools/gen_brand.py && git diff --exit-code assets
 
   frontend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -31,6 +31,7 @@ jobs:
       - name: Instalar Chromium para las regresiones de interfaz
         run: npx playwright install --with-deps chromium
         working-directory: ui
+        timeout-minutes: 10
       - name: Catalogo y flujos Starling en Chromium
         run: npm run test:browser
         working-directory: ui

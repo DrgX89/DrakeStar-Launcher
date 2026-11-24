@@ -10,7 +10,8 @@ Implementación independiente; fuentes y avisos en [THIRD_PARTY_NOTICES](../THIR
 
 El job `frontend` del CI instala Chromium y ejecuta ambas suites con
 `npm run test:browser`, además de las pruebas del estado de diagnóstico que
-ya incluye `npm run build`. Las suites de navegador se ejecutan una a la vez
+ya incluye `npm run build`. Usa Ubuntu 24.04 para mantener la compatibilidad
+con Playwright 1.58.2 fijado en el lockfile. Las suites de navegador se ejecutan una a la vez
 y bloquean el job si fallan. Para reproducirlas localmente: `cd ui`, `npm ci`,
 `npx playwright install chromium` y `npm run test:browser`. Usan un backend
 sintético: no validan una cuenta real ni compatibilidad con Android.
