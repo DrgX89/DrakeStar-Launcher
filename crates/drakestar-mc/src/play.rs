@@ -66,6 +66,7 @@ pub fn prepare(d: &Dirs, inst: &Instance, account_id: &str, client_id: &str, sin
     if !options.exists() {
         let _ = std::fs::write(&options, "onboardAccessibility:false\n");
     }
+    let mut fused_jar = None;
     if inst.loader == Loader::Fabric {
         sink.stage("mods", "Instalando mods");
         let mods_dir = game_dir.join("mods");
@@ -89,7 +90,7 @@ pub fn prepare(d: &Dirs, inst: &Instance, account_id: &str, client_id: &str, sin
             mods::remove_fused(&mods_dir);
         } else if !offline {
             match mods::ensure_fused(&mods_dir, &inst.mc, "fabric") {
-                Ok(Some(_)) => {}
+                Ok(Some(j)) => fused_jar = Some(j),
                 Ok(None) => warnings.push(format!("DrakeStar Fused aun no tiene una version publicada para Minecraft {}: se abre sin Fused.", inst.mc)),
                 Err(e) => warnings.push(format!("No se pudo instalar DrakeStar Fused: {e}")),
             }
@@ -112,8 +113,17 @@ pub fn prepare(d: &Dirs, inst: &Instance, account_id: &str, client_id: &str, sin
         // 26.x: el monolito DrakesPurpur (ya trae Slimefun y las suites); antes de 26: Purpur + Slimefun
         let monolith = server::is_monolith(&inst.mc);
         let jar = if monolith { server::ensure_drakespurpur(d, &inst.id, sink)? } else { server::ensure_purpur(d, &inst.id, &inst.mc, sink)? };
-        let sjava = java::ensure(d, server::java_major(&inst.mc), sink)?;
         server::configure(d, &inst.id, port, *lan)?;
+        // paso 5b: Fused con host embebido + monolito 26.x + cliente Java 25 -> el servidor corre dentro del cliente
+        if monolith && installed.java_major >= 25 && fused_jar.as_deref().is_some_and(mods::fused_embeds) {
+            o.extra_jvm.push(format!("-Ddrakestar.fused.embedded.jar={}", jar.display()));
+            o.extra_jvm.push(format!("-Ddrakestar.fused.embedded.server={}", server::dir(d, &inst.id).display()));
+            o.xmx_mb += 3072;
+            o.join_server = Some(format!("127.0.0.1:{port}"));
+            let plan = launch::plan(d, &installed, &session, &with_ely(d, &account, o, sink)?)?;
+            return Ok(Prepared { plan, session, game_dir, warnings, java_major: installed.java_major, version_id, server: None });
+        }
+        let sjava = java::ensure(d, server::java_major(&inst.mc), sink)?;
         match if monolith { Ok(Some(std::path::PathBuf::new())) } else { mods::ensure_slimefun(&server::dir(d, &inst.id).join("plugins"), &inst.mc) } {
             Ok(Some(_)) => {}
             Ok(None) => warnings.push(format!("Slimefun aun no tiene build para Minecraft {}: el servidor local abre sin Slimefun.", inst.mc)),
@@ -122,12 +132,16 @@ pub fn prepare(d: &Dirs, inst: &Instance, account_id: &str, client_id: &str, sin
         local = Some(LocalServer { plan: server::plan(d, &inst.id, &jar, sjava, (inst.xmx_mb / 2).max(if monolith { 3072 } else { 1536 })), port, log_file: server::dir(d, &inst.id).join("logs").join("launcher-server.log") });
         o.join_server = Some(format!("127.0.0.1:{port}"));
     }
+    let plan = launch::plan(d, &installed, &session, &with_ely(d, &account, o, sink)?)?;
+    Ok(Prepared { plan, session, game_dir, warnings, java_major: installed.java_major, version_id, server: local })
+}
+
+fn with_ely(d: &Dirs, account: &crate::accounts::Account, mut o: Options, sink: &dyn ProgressSink) -> McResult<Options> {
     if account.kind == crate::accounts::Kind::Elyby {
         sink.stage("elyby", "Preparando autenticación Ely.by");
         o.extra_jvm.push(crate::ely::agent_arg(&crate::ely::ensure_agent(d)?));
     }
-    let plan = launch::plan(d, &installed, &session, &o)?;
-    Ok(Prepared { plan, session, game_dir, warnings, java_major: installed.java_major, version_id, server: local })
+    Ok(o)
 }
 
 fn has_jar(dir: &std::path::Path, prefix: &str) -> bool {

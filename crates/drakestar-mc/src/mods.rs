@@ -162,6 +162,11 @@ pub fn ensure_fused(mods_dir: &Path, mc: &str, loader: &str) -> McResult<Option<
     Ok(None)
 }
 
+/// Si el jar de Fused trae el host embebido (`Embed`, paso 5a): puede arrancar el monolito dentro del cliente.
+pub fn fused_embeds(jar: &Path) -> bool {
+    std::fs::File::open(jar).ok().and_then(|f| zip::ZipArchive::new(f).ok()).is_some_and(|mut z| z.by_name("Embed.class").is_ok())
+}
+
 /// Slimefun4-Drake para el servidor local: el jar `Slimefun-*-<mc>-SNAPSHOT.jar` del release mas reciente que lo tenga.
 /// `None` si no hay build para esa version de Minecraft.
 pub fn ensure_slimefun(plugins_dir: &Path, mc: &str) -> McResult<Option<PathBuf>> {
@@ -179,4 +184,33 @@ pub fn ensure_slimefun(plugins_dir: &Path, mc: &str) -> McResult<Option<PathBuf>
         }
     }
     Ok(None)
+}
+
+#[cfg(test)]
+mod embed_tests {
+    use super::fused_embeds;
+    use std::io::Write;
+
+    fn jar(dir: &std::path::Path, name: &str, entries: &[&str]) -> std::path::PathBuf {
+        let p = dir.join(name);
+        let mut z = zip::ZipWriter::new(std::fs::File::create(&p).unwrap());
+        for e in entries {
+            z.start_file(*e, zip::write::SimpleFileOptions::default()).unwrap();
+            z.write_all(b"x").unwrap();
+        }
+        z.finish().unwrap();
+        p
+    }
+
+    #[test]
+    fn detecta_host_embebido() {
+        let d = std::env::temp_dir().join(format!("fused-embed-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        assert!(fused_embeds(&jar(&d, "nuevo.jar", &["fabric.mod.json", "Embed.class"])));
+        assert!(!fused_embeds(&jar(&d, "viejo.jar", &["fabric.mod.json", "com/drakescraft/fused/Embed.class"])));
+        std::fs::write(d.join("roto.jar"), b"no zip").unwrap();
+        assert!(!fused_embeds(&d.join("roto.jar")));
+        assert!(!fused_embeds(&d.join("falta.jar")));
+        let _ = std::fs::remove_dir_all(&d);
+    }
 }
