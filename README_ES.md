@@ -1,8 +1,23 @@
-# DrakeStar
+<p align="center">
+  <img src="assets/banner.svg" alt="Banner de DrakeStar Launcher" width="100%" />
+</p>
 
-Launcher de Minecraft de **DrakesCraft**. Un solo botón, **JUGAR**: instala Java, el juego y los mods por ti y abre Minecraft **1.20 a 26.2** con tu cuenta de Microsoft o sin premium.
+<p align="center">
+  <a href="https://github.com/SlimefunNewHorizons/DrakeStar-Launcher/releases/latest"><img alt="Última versión" src="https://img.shields.io/github/v/release/SlimefunNewHorizons/DrakeStar-Launcher?color=8b5cf6&label=Release&style=for-the-badge" /></a>
+  <a href="https://github.com/SlimefunNewHorizons/DrakeStar-Launcher/actions/workflows/ci.yml"><img alt="Estado CI" src="https://img.shields.io/github/actions/workflow/status/SlimefunNewHorizons/DrakeStar-Launcher/ci.yml?branch=main&label=CI&style=for-the-badge" /></a>
+  <a href="LICENSE"><img alt="Licencia MIT" src="https://img.shields.io/badge/Licencia-MIT-38bdf8?style=for-the-badge" /></a>
+  <img alt="Plataformas" src="https://img.shields.io/badge/Plataformas-Windows%20%7C%20Linux%20%7C%20macOS-22d3ee?style=for-the-badge" />
+</p>
 
-[English](README.md)
+<p align="center">
+  <a href="README.md">English</a> · <strong>Español</strong> · <a href="docs/LAUNCHER.md">Guía</a> · <a href="docs/ARCHITECTURE.md">Arquitectura</a> · <a href="AGENTS.md">AGENTS.md</a> · <a href="SECURITY.md">Seguridad</a>
+</p>
+
+---
+
+# DrakeStar Launcher
+
+Launcher oficial de Minecraft de **DrakesCraft**. Un solo botón, **JUGAR**: instala Java, el juego y los mods por ti y abre Minecraft **1.20 a 26.2** con tu cuenta de Microsoft, Ely.by o sin premium.
 
 ## Instalar
 

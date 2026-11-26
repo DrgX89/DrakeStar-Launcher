@@ -4,13 +4,28 @@
 > **Créditos y licencia.** Port y mantenimiento por [JackStar6677-1](https://github.com/JackStar6677-1) y [DrakesCraft Labs](https://github.com/SlimefunNewHorizons). Autores originales: [DrgX89](https://github.com/DrgX89). Licencia original: **MIT License**. Detalle en [docs/UPSTREAM_ATTRIBUTION.md](docs/UPSTREAM_ATTRIBUTION.md).
 <!-- credits:end -->
 
-# DrakeStar (`v0.7.0` — Feature-Complete)
+<p align="center">
+  <img src="assets/banner.svg" alt="DrakeStar Launcher Banner" width="100%" />
+</p>
 
-> **Status:** `Feature-Complete / Production Freeze (v0.7.0)` — Stable production launcher with automated signed CI/CD releases (`--locked` + minisign).
+<p align="center">
+  <a href="https://github.com/SlimefunNewHorizons/DrakeStar-Launcher/releases/latest"><img alt="Latest Release" src="https://img.shields.io/github/v/release/SlimefunNewHorizons/DrakeStar-Launcher?color=8b5cf6&label=Release&style=for-the-badge" /></a>
+  <a href="https://github.com/SlimefunNewHorizons/DrakeStar-Launcher/actions/workflows/ci.yml"><img alt="CI Status" src="https://img.shields.io/github/actions/workflow/status/SlimefunNewHorizons/DrakeStar-Launcher/ci.yml?branch=main&label=CI&style=for-the-badge" /></a>
+  <a href="LICENSE"><img alt="License MIT" src="https://img.shields.io/badge/License-MIT-38bdf8?style=for-the-badge" /></a>
+  <img alt="Platforms" src="https://img.shields.io/badge/Platforms-Windows%20%7C%20Linux%20%7C%20macOS-22d3ee?style=for-the-badge" />
+</p>
 
-The **DrakesCraft** Minecraft launcher. One **PLAY** button with **Dual Engine Mode** (**Java Aikar G1GC** + native **DrakesRust / Horizon 26.3**) and **Local Monolith Mode** (*Slimefun single-player / LAN* powered by DrakesPurpur 26.2 in ~22s with clean shutdown). Opens Minecraft **1.20 to 26.2** with a Microsoft or offline account.
+<p align="center">
+  <strong>English</strong> · <a href="README_ES.md">Español</a> · <a href="docs/LAUNCHER.md">Guide</a> · <a href="docs/ARCHITECTURE.md">Architecture</a> · <a href="AGENTS.md">AGENTS.md</a> · <a href="SECURITY.md">Security</a>
+</p>
 
-[Español](README_ES.md)
+---
+
+# DrakeStar Launcher
+
+> **Status:** Stable production launcher with automated signed CI/CD releases (`--locked` + `minisign`).
+
+The **DrakesCraft** Minecraft launcher. One **PLAY** button with **Dual Engine Mode** (**Java Aikar G1GC / ZGC** + native **DrakesRust / Horizon 26.3**) and **Local Monolith Mode** (*Slimefun single-player / LAN* powered by DrakesPurpur 26.2 with clean shutdown). Opens Minecraft **1.20 to 26.2** with a Microsoft, Ely.by, or offline account.
 
 ## Install
 

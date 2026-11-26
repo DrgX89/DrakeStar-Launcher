@@ -1,53 +1,44 @@
-# Engineering Standards for AI Agents & Automated Contributors (AGENTS.md)
+# Engineering Standards for AI Agents & Contributors (`AGENTS.md`)
 
-This document establishes the binding engineering guidelines for any **Autonomous Agent**, **LLM-assisted developer**, or **Automated CI/CD Workflow** submitting issues, pull requests, or code reviews to the **DrakeStar-Launcher** repository.
+This document defines the binding engineering rules for any human contributor, AI assistant, or automated workflow working on **DrakeStar-Launcher**.
 
----
+## 1. Repository Architecture
 
-## 🧭 Core Principles
+- **Rust workspace (`crates/`):**
+  - `drakestar-mc`: Minecraft versions, accounts (Microsoft / Ely.by / Offline), Java runtime management, Horizon native engine.
+  - `drakestar-core`: Fabric/vanilla launching, instance profiles, Fused / local monolith integration.
+  - `drakestar-net`: HTTP downloads, SHA-256 verification, release feeds.
+  - `drakestar-app`: Application state, mod sync, settings, release orchestration.
+  - `drakestar-cli`: Headless CLI entry point.
+  - `drakestar-rust-client`: Native Horizon client bridge.
+- **Desktop shell (`src-tauri/`):** Tauri v2 backend commands, signed updater (`minisign`), OS integrations.
+- **Frontend (`ui/`):** TypeScript + Vite UI and Playwright Chromium E2E suite (`npm --prefix ui run test:browser`).
+- **Release tooling (`tools/bump-release.mjs`):** Synchronizes versions across `Cargo.toml`, `src-tauri/tauri.conf.json`, and `ui/package.json`.
 
-1. **Human Ownership & Accountability**:
-   Automated agents and AI models do not hold legal or technical accountability. The human author whose credentials push the code or open the PR assumes **full responsibility** for the correctness, performance, security, and maintenance of the changes.
+## 2. Mandatory Verification Before Opening or Merging a PR
 
-2. **Transparent Disclosure**:
-   In accordance with open source best practices, contributors must explicitly disclose the involvement of AI agents or LLMs in the PR description:
-   ```markdown
-   ### 🤖 AI Assistance Disclosure
-   - Tools used: [e.g., Claude Code, Cursor, Copilot, Custom Agent]
-   - Human verification: Fully reviewed, locally verified, and all checks passed.
+Every change must pass local verification matching CI (`.github/workflows/ci.yml`):
+
+1. **Rust tests:**
+   ```bash
+   cargo test -p drakestar-mc -p drakestar-core -p drakestar-net -p drakestar-app -p drakestar-cli
    ```
+2. **Frontend build & browser tests (when touching `ui/` or IPC):**
+   ```bash
+   npm --prefix ui ci
+   npm --prefix ui run build
+   npm --prefix ui run test:browser
+   ```
+3. **Lockfile integrity:** Never add a root `package-lock.json`-less `package.json` that breaks `npm ci`, and keep `Cargo.lock` synced so `--locked` builds succeed.
+4. **Preserve existing auth & account variants:** Never remove or alter account providers (`Microsoft`, `Elyby`, `Offline`) or secret-handling formats without explicit migration and tests.
 
-3. **Zero AI Slop & Anti-Hallucination Policy**:
-   PRs containing any of the following will be **immediately closed without review, marked as spam, and may result in a contributor block**:
-   * Hallucinated Bukkit/Spigot/Paper methods, fake Slimefun item definitions, or invented imports.
-   * "Plumbing without water": empty boilerplate files, dummy implementations, or unneeded scaffolding.
-   * Unrequested refactoring of working production code without functional or performance justification.
-   * Broken builds, compiler warnings, or failing tests.
-   * Circular, repetitive LLM apologies in issue or review threads.
+## 3. Git, Commits & Releases
 
----
+- Keep commits small, focused, and verified. Do not add AI `Co-Authored-By:` trailers.
+- **Never build release binaries by hand:** bump versions with `node tools/bump-release.mjs X.Y.Z` and let GitHub Actions build and sign artifacts for Windows, Linux, and macOS (see [docs/PUBLICAR.md](docs/PUBLICAR.md)).
+- If `graphify-out/` is present, query the knowledge graph before scanning large files.
 
-## 🧪 Verification & Evidence Requirement (Rust / Tauri / Flutter)
+## 4. Security & Privacy Rules
 
-Every PR submitted to DrakeStar-Launcher with AI assistance **must include verifiable evidence of local execution**:
-
-* **Build / Verification**:
-  - `cargo test or flutter test` must pass with zero errors.
-* **Linting & Code Style**:
-  - `cargo clippy` must pass cleanly without warnings.
-* **Deterministic Reproduction**:
-  - Bug fixes must include minimal reproduction steps or a test asserting the fix.
-
----
-
-## 🚫 Forbidden AI Behaviors
-
-* **Unsolicited Mass PRs**: Automated bots opening batch PRs without maintainer pre-approval.
-* **Breaking Changes to BlockStorage / PDC**: Never alter data keys without backwards-compatible migration.
-* **Review Spam**: Posting automated LLM code reviews on PRs unless specifically invited by the repository maintainers.
-
----
-
-## 🏛️ Code of Conduct Compliance
-
-All interactions generated or facilitated by AI tools must strictly adhere to our [Code of Conduct](CODE_OF_CONDUCT.md). Hostile, entitled, or automated spam responses will lead to immediate repository-level and organization-level blocking.
+- Never log, commit, or transmit tokens, `accounts/secrets.json`, or private signing keys.
+- Any external download (Java, Fabric, mods, Horizon binaries) must verify checksums (SHA-256) before extraction or execution.
