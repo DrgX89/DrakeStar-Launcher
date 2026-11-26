@@ -64,7 +64,7 @@ Details (forks, PRs, manual dispatch): [docs/PUBLICAR.md](docs/PUBLICAR.md#publi
 
 ## Docs
 
-[Changelog](CHANGELOG.md) (Spanish) · [Operations guide](docs/LAUNCHER.md) (accounts and Azure, reports, updates, releasing, Fused, Horizon) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](docs/ROADMAP.md)
+[Changelog](CHANGELOG.md) (Spanish) · [Operations guide](docs/LAUNCHER.md) (accounts and Azure, reports, updates, releasing, Fused, Horizon) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](docs/ROADMAP.md) · [Modpack Sync & Crash Triage](docs/MODPACK_SYNC_AND_CRASH_REPORTING.md)
 
 ## Development
 

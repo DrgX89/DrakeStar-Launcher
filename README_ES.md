@@ -56,7 +56,7 @@ Detalle (forks, PRs, ejecución manual): [docs/PUBLICAR.md](docs/PUBLICAR.md#pub
 
 ## Documentación
 
-[Novedades](CHANGELOG.md) · [Guía de operación](docs/LAUNCHER.md) (cuentas y Azure, reportes, actualizaciones, publicación, Fused, Horizon) · [Arquitectura](docs/ARCHITECTURE.md) · [Roadmap](docs/ROADMAP.md) · [Marca](docs/BRANDING.md)
+[Novedades](CHANGELOG.md) · [Guía de operación](docs/LAUNCHER.md) (cuentas y Azure, reportes, actualizaciones, publicación, Fused, Horizon) · [Arquitectura](docs/ARCHITECTURE.md) · [Roadmap](docs/ROADMAP.md) · [Modpack Sync & Crash Triage](docs/MODPACK_SYNC_AND_CRASH_REPORTING.md) · [Marca](docs/BRANDING.md)
 
 ## Desarrollo
 
