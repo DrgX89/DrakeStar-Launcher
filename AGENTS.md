@@ -42,3 +42,12 @@ Every change must pass local verification matching CI (`.github/workflows/ci.yml
 
 - Never log, commit, or transmit tokens, `accounts/secrets.json`, or private signing keys.
 - Any external download (Java, Fabric, mods, Horizon binaries) must verify checksums (SHA-256) before extraction or execution.
+
+## 5. Planned Modpack Sync, Client Audit & Transparency (`v0.7+`)
+
+Before implementing or modifying mod synchronization (`drakestar-app/src/modsync.rs`), crash telemetry, or official-server integrity checks, **read [docs/MODPACK_SYNC_AND_CRASH_REPORTING.md](docs/MODPACK_SYNC_AND_CRASH_REPORTING.md)** and enforce these invariants:
+
+- **Server-Authoritative Sync:** Never pull newer external mod versions over the server's `mods-manifest.json` pins; verify SHA-256 before moving any JAR into `mods/`, and prune removed server mods without deleting player-added client mods (warn on unknown extra mods, block known cheats).
+- **Deterministic First, Zero Spam:** On the receiving backend (Star / future Oracle), resolve extra client mod `sha256` hashes deterministically via Modrinth/CurseForge APIs with local caching; only run an optional AI web lookup once per unseen `sha256` with deduplicated digest logging (no alert floods).
+- **Hardened Ingestion & Zero Client Secrets:** Never embed server/API secrets in the launcher; enforce strict JSON schema/size limits, rate limiting, and untrusted-input sanitization (never interpolate client strings into shell/SQL/AI prompts).
+- **Transparency & Non-Affiliation:** Keep launcher UI disclosures, [README_ES.md](README_ES.md)/[README.md](README.md), and `drakescraft.cl` (`/privacidad.html`, `/terms.html`, `/reglas.html`) aligned: open-source non-profit (MIT), exact disclosure of crash logs + extra-mod audit fields (`username` + hashes on official server launch only), and explicit Mojang/Microsoft non-affiliation for both Java and Horizon (Rust) engines.
