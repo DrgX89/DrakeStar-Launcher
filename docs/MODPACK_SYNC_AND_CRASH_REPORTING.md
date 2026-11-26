@@ -1,45 +1,45 @@
-# Sincronización Autoritativa de Mods, Auditoría de Cliente y Privacidad
+# Server-Authoritative Modpack Sync, Client Audit & Privacy Specification
 
-Especificación técnica y de gobernanza para implementar en **DrakeStar-Launcher** la sincronización de modpacks controlada por el servidor, el control transparente de mods adicionales del jugador, el triage automático de crashes y las reglas de seguridad/privacidad.
+Technical and governance specification for **DrakeStar-Launcher** covering server-authoritative modpack synchronization, transparent client-added mod auditing, automated crash triage, and security/privacy guarantees.
 
-> **Estado:** Especificación aprobada para desarrollo (`v0.7+`). Todo agente o colaborador que implemente estas funciones debe seguir este documento y [AGENTS.md](../AGENTS.md).
-
----
-
-## 1. Principio: Servidor como Única Fuente de Verdad (*Server-Authoritative Mod Sync*)
-
-Análogo al sistema de recarga de texturas de **Odysseia** (`pack.drakescraft.cl`), el servidor (nodo dedicado futuro en **Oracle** o backend en **Star** detrás de Cloudflare) es la única fuente de verdad del modpack:
-
-- **Pinning estricto de versión:** Si el servidor corre `LuckPerms v1` aunque exista `v2` en Modrinth/CurseForge, el cliente descarga y conserva exactamente `LuckPerms v1` desde el espejo configurado del servidor.
-- **Cero reempaquetado manual del modpack:** Agregar, parchear o **eliminar** un mod en el servidor solo requiere actualizar `mods-manifest.json`. Al siguiente clic en **JUGAR**, el cliente queda sincronizado antes de abrir Minecraft.
-- **Separación de mods gestionados vs. mods propios del jugador:**
-  - El launcher mantiene un registro local de archivos gestionados (`.drakestar-managed.json` o carpeta separada para extras).
-  - Si un `.jar` estaba en el manifiesto del servidor y el servidor lo retiró, el launcher **lo elimina**.
-  - Si un `.jar` fue agregado manualmente por el jugador (p. ej. cosméticos o rendimiento) y no estaba en el manifiesto gestionado, el launcher **no lo borra**: lo clasifica como **mod adicional del jugador** y aplica la política de la Sección 3.
+> **Status:** Approved design specification for upcoming releases (`v0.7+`). Any contributor or AI agent implementing these features must follow this document and [AGENTS.md](../AGENTS.md).
 
 ---
 
-## 2. Flujo de Sincronización al presionar JUGAR
+## 1. Core Principle: Server as Single Source of Truth
+
+Analogous to **Odysseia**'s live resource-pack reload (`pack.drakescraft.cl`), the server (future dedicated **Oracle** node or **Star** backend behind Cloudflare) is the single source of truth for the official modpack:
+
+- **Strict version pinning:** If the server runs `LuckPerms v1` even when `v2` is published on Modrinth/CurseForge, the client downloads and keeps exactly `LuckPerms v1` from the server's configured mirror.
+- **Zero manual modpack re-packaging:** Adding, patching, or **removing** a mod on the server only requires updating `mods-manifest.json`. On the next **PLAY** click, the client syncs automatically before launching Minecraft.
+- **Separation of server-managed vs. player-added mods:**
+  - The launcher tracks server-managed JARs locally (`.drakestar-managed.json` or a separate directory for player extras).
+  - If a `.jar` was in the server manifest and was removed from the server, the launcher **deletes it**.
+  - If a `.jar` was manually added by the player (e.g., cosmetics or performance) and was not server-managed, the launcher **keeps it**, classifies it as a **player-added mod**, and applies the policy in Section 3.
+
+---
+
+## 2. Sync Flow on PLAY
 
 ```text
-[Clic en JUGAR]
+[Click PLAY]
    │
    ▼
-GET https://<host-modpack>/mods-manifest.json   (ETag / SHA-256 + timeout acotado)
+GET https://<modpack-host>/mods-manifest.json   (ETag / SHA-256 + bounded timeout)
    │
-   ├── 1. Sincronizar mods gestionados por el servidor:
-   │      • Descargar JARs nuevos/modificados a .tmp y verificar SHA-256
-   │      • Mover atómicamente a mods/ y actualizar .drakestar-managed.json
-   │      • Eliminar de mods/ los JARs gestionados que salieron del manifiesto
+   ├── 1. Sync server-managed mods:
+   │      • Download new/changed JARs to .tmp and verify SHA-256
+   │      • Atomically move into mods/ and update .drakestar-managed.json
+   │      • Remove managed JARs from mods/ that are no longer in the manifest
    │
-   ├── 2. Inspeccionar mods adicionales del jugador (si existen):
-   │      • Calcular SHA-256 + leer metadata (mod_id, version) del JAR
-   │      • Evaluar contra policy.allowed / policy.blocked del manifiesto
+   ├── 2. Inspect player-added mods (if any):
+   │      • Compute SHA-256 + read mod metadata (mod_id, version) from JAR
+   │      • Evaluate against policy.allowed / policy.blocked in manifest
    │
-   └── 3. Advertir / Bloquear / Lanzar
+   └── 3. Warn / Block / Launch
 ```
 
-### Contrato de `mods-manifest.json`
+### `mods-manifest.json` Contract
 
 ```json
 {
@@ -68,63 +68,63 @@ GET https://<host-modpack>/mods-manifest.json   (ETag / SHA-256 + timeout acotad
 
 ---
 
-## 3. Control de Mods Adicionales del Jugador (Sin Fricción ni Spam)
+## 3. Player-Added Client Mods (Low Friction, Zero Alert Spam)
 
-Al detectar mods agregados por el usuario fuera del pack del servidor:
+When extra JARs added by the player are detected outside the server pack:
 
-| Clasificación | Comportamiento en DrakeStar-Launcher |
+| Classification | Behavior in DrakeStar-Launcher |
 | :--- | :--- |
-| **Permitido** (`allowed_client_sha256`) | Entra directo sin advertencias molestas (cosméticos, shaders, rendimiento). |
-| **Prohibido** (`blocked_ids` / `blocked_sha256`) | **Bloquea el botón JUGAR** hacia el servidor oficial e indica exactamente qué `.jar` retirar. |
-| **Desconocido** (no listado aún) | Muestra advertencia clara antes de lanzar: *"Sincronización completada, pero detectamos mod(s) propio(s). El servidor no garantiza compatibilidad ni soporte (p. ej., funciones de Litematica pueden requerir soporte en servidor). Recomendamos usar solo cosméticos o rendimiento."* |
+| **Allowed** (`allowed_client_sha256`) | Launches cleanly with no extra prompt (approved cosmetics, shaders, performance). |
+| **Blocked** (`blocked_ids` / `blocked_sha256`) | **Blocks PLAY** to the official server and names the exact `.jar` to remove. |
+| **Unknown** (not yet listed) | Shows a clear pre-launch warning: *"Server mod sync finished, but player-added mod(s) were detected. Official server compatibility and support are not guaranteed (e.g., some Litematica features require server-side support). Recommended for cosmetics/performance only."* |
 
-### Auditoría determinista en el servidor (Star / Oracle — Sin usar IA por defecto)
+### Deterministic Server-Side Audit (Star / Future Oracle — No AI by Default)
 
-Cuando el usuario lanza hacia el **servidor oficial** (nunca en modo local/single-player) y aceptó los términos de juego, el launcher envía únicamente:
-`username`, `account_type` (`premium` | `offline`), `pack_revision` y la lista de **mods adicionales** (`file`, `mod_id`, `version`, `sha256`).
+When launching into the **official server** (never in local/single-player mode) after accepting server terms, the launcher transmits only:
+`username`, `account_type` (`premium` | `offline`), `pack_revision`, and the list of **player-added mods** (`file`, `mod_id`, `version`, `sha256`).
 
-En el servidor receptor (**Star** hoy detrás de Cloudflare Tunnel, o nodo aislado futuro en **Oracle**), la resolución funciona en **2 etapas con cero spam**:
+On the receiving server (**Star** behind Cloudflare Tunnel, or a future isolated **Oracle** node), resolution runs in **two stages without alert spam**:
 
-1. **Etapa 1 — 100% determinista (sin IA):**
-   - Consulta caché local por `sha256`.
-   - Si es nuevo, consulta automáticamente **Modrinth API** (`GET /v2/version_file/{sha256}?algorithm=sha256`) y **CurseForge API** (por fingerprint/hash) para identificar proyecto oficial, autor, categoría y URL de origen.
-   - Guarda el resultado cacheado por `sha256` en la base del servidor.
-2. **Etapa 2 — Búsqueda web con IA (solo fallback opcional y deduplicado):**
-   - Únicamente si el `sha256` no existe ni en Modrinth ni en CurseForge (p. ej. mod casero o compilado manualmente), SAORI puede lanzar **una única búsqueda web asistida por IA por cada `sha256` nuevo** para recabar contexto.
-   - **Cero spam de alertas:** No se envían correos ni alertas por cada conexión. Todo queda en un **log/digest consolidado** agrupado por `sha256` y solo escala si hay coincidencia sospechosa o sanción/infracción asociada a la cuenta.
-
----
-
-## 4. Pipeline de Logs de Errores y Triage de Crashes
-
-Extiende el sistema actual de registros de DrakeStar:
-
-- **Separación explícita:** clasifica si el fallo ocurrió en el **launcher** (Tauri/Rust/UI), en el motor nativo **Horizon** (Rust) o en **Minecraft / Mods** (`exit != 0`, `crash-reports/`, `hs_err_pid*.log`).
-- **Atribución de cliente modificado:** si había mods propios del jugador cargados al momento del crash, el reporte incluye `client_modified: true` y la lista de esos mods para no confundir fallos propios del usuario con bugs del modpack.
-- **Destino y finalidad:** los logs sanitizados (sin rutas personales, correos, IPs ni tokens) se envían a **Star (SAORI)** exclusivamente para diagnosticar y corregir errores del launcher/modpack, agrupando duplicados por firma antes de abrir o actualizar un Issue en GitHub.
+1. **Stage 1 — 100% deterministic (zero AI):**
+   - Check local cache by `sha256`.
+   - On cache miss, query **Modrinth API** (`GET /v2/version_file/{sha256}?algorithm=sha256`) and **CurseForge API** (fingerprint/hash) to resolve the official project name, author, category, and source URL.
+   - Persist the resolved metadata keyed by `sha256`.
+2. **Stage 2 — Optional AI web lookup (cache-miss only, deduplicated):**
+   - Only if the `sha256` is absent from both Modrinth and CurseForge (e.g., custom or manually compiled mod), SAORI may run **a single AI-assisted web lookup per unseen `sha256`** for context.
+   - **No alert floods:** Never send emails or notifications per connection. Store entries in a consolidated, `sha256`-deduplicated digest log and surface only high-risk flags or entries correlated with an in-game infraction.
 
 ---
 
-## 5. Seguridad y Endurecimiento (*Proteger Star / Futuro Oracle*)
+## 4. Error Logs & Crash Triage Pipeline
 
-Toda implementación cliente/servidor de estas rutas debe cumplir sin excepciones:
+Extends DrakeStar's existing logging and crash reporting:
 
-1. **Cero secretos en el cliente:** El binario/código de DrakeStar-Launcher jamás incluye llaves de BD, tokens de GitHub, API keys de CurseForge/Modrinth privadas ni tokens admin de Star.
-2. **Validación estricta de entrada:** El endpoint receptor en Star valida esquema JSON estricto, tamaño máximo de payload (p. ej. `<= 64 KB`), cantidad máxima de items, y regex estricta para `sha256` (`^[a-f0-9]{64}$`), `mod_id` y `username`.
-3. **Rate limiting & WAF:** Límites por IP y por usuario en Cloudflare WAF + servidor receptor para impedir inundación de logs o denegación de servicio.
-4. **Aislamiento contra inyección:** Todo campo recibido del cliente (`file`, `mod_id`, líneas de crash log) se trata como **datos no confiables**: prohibida cualquier interpolación en shell/SQL, escape estricto en vistas/issues y sanitización contra *prompt injection* antes de cualquier análisis opcional con IA.
-5. **Aislamiento de producción:** Ni el recolector de crashes ni el sync de modpacks tienen acceso de escritura a producción Dallas (`DrakesPurpur`).
+- **Explicit fault attribution:** Distinguishes **launcher** crashes (Tauri/Rust/UI), native **Horizon** engine (Rust) crashes, and **Minecraft / Mod** crashes (`exit != 0`, `crash-reports/`, `hs_err_pid*.log`).
+- **Modified-client tagging:** If player-added mods were loaded during the crashed session, the payload sets `client_modified: true` with those mod IDs/hashes so modpack bugs and user-mod conflicts are never mixed up.
+- **Purpose & destination:** Sanitized logs (user paths, emails, IPs, and tokens redacted) are sent to **Star (SAORI)** solely to diagnose and fix launcher/modpack issues, deduplicating by stack signature before creating or updating a GitHub issue.
 
 ---
 
-## 6. Transparencia, Privacidad y Aviso Legal (Launcher + GitHub + `drakescraft.cl`)
+## 5. Security & Hardening (Protecting Star / Future Oracle)
 
-Las pantallas del launcher, este repositorio y las páginas legales existentes de **`drakescraft.cl`** (`/terms.html`, `/terms-en.html`, `/privacidad.html`, `/privacidad-en.html`, `/reglas.html`) deben mantener coherencia total sobre estos puntos:
+All client and server implementations must enforce:
 
-1. **Proyecto sin ánimo de lucro y código abierto:** DrakeStar-Launcher se distribuye sin fines de lucro bajo licencia **MIT**; cualquier jugador puede auditar exactamente qué datos salen del cliente revisando el código fuente en GitHub.
-2. **Transparencia exacta de datos enviados:**
-   - **Reportes de error/crash** (desactivables en *Ajustes → Privacidad*): versión del launcher/Minecraft, sistema operativo, estado de cliente modificado y fragmentos sanitizados de logs, usados **únicamente** para corregir fallos del launcher y mejorar la estabilidad.
-   - **Auditoría de mods adicionales al entrar al servidor oficial** (no aplica en modo local/single-player): `username` (premium o no premium, solo para identificar la cuenta dentro del servidor) + nombres/versiones/SHA-256 de los mods externos añadidos por el jugador.
-3. **No afiliación con Mojang / Microsoft:**
-   - *DrakeStar-Launcher y DrakesCraft Labs son proyectos comunitarios independientes, sin ánimo de lucro. **NO son un producto oficial de Minecraft** ni están aprobados por o asociados con **Mojang AB** o **Microsoft Corporation**.*
-   - Aplica tanto al flujo tradicional de Minecraft Java (Vanilla/Fabric/NeoForge) como al cliente experimental en Rust (**Horizon**).
+1. **Zero secrets in the client:** DrakeStar-Launcher never embeds database credentials, GitHub tokens, private CurseForge/Modrinth keys, or Star admin tokens.
+2. **Strict input validation:** The server ingest endpoint enforces strict JSON schema validation, max payload size (e.g., `<= 64 KB`), item caps, and strict regexes on `sha256` (`^[a-f0-9]{64}$`), `mod_id`, and `username`.
+3. **Rate limiting & WAF:** Per-IP and per-account rate limits via Cloudflare WAF and server middleware to prevent log flooding or DoS.
+4. **Untrusted-input isolation:** All client strings (`file`, `mod_id`, crash log lines) are treated as **untrusted data** — never interpolated into shell commands or SQL, escaped in UI/issues, and sanitized against prompt injection before any optional AI analysis.
+5. **Production isolation:** Neither crash ingestion nor modpack sync has write access to Dallas production (`DrakesPurpur`).
+
+---
+
+## 6. Transparency, Privacy & Non-Affiliation (Launcher + GitHub + `drakescraft.cl`)
+
+Launcher UI screens, this repository, and the legal pages on **`drakescraft.cl`** (`/terms.html`, `/terms-en.html`, `/privacidad.html`, `/privacidad-en.html`, `/reglas.html`) must stay aligned on:
+
+1. **Non-profit & open-source:** DrakeStar-Launcher is a non-profit, open-source (**MIT**) community project; anyone can inspect the exact data transmitted on GitHub.
+2. **Exact data disclosure:**
+   - **Crash/error reports** (toggleable in *Settings → Privacy*): launcher/Minecraft version, OS, modified-client flag, and redacted log excerpts, used **solely** to fix bugs and improve stability.
+   - **Extra-mod integrity check on official server launch** (not used in local/single-player): `username` (premium or offline, solely to identify the server account) plus filenames, versions, and SHA-256 hashes of extra player-added mods.
+3. **Mojang / Microsoft non-affiliation:**
+   - *DrakeStar-Launcher and DrakesCraft Labs are independent, non-profit community projects. **NOT an official Minecraft product. Not approved by or associated with Mojang AB or Microsoft Corporation.***
+   - Applies to both standard Java Minecraft launching (Vanilla/Fabric/NeoForge) and the experimental Rust client (**Horizon**).
